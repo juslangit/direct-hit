@@ -33,6 +33,19 @@ the same bounding box as one sailing forwards:
 
 Pictures land in `dev/shots/`, which git ignores - they are output, not source.
 
+## The project record
+
+The whole record of this game - idea, decisions, methods, session log and every
+screenshot - is one self-contained HTML file at `docs/index.html`, generated
+from the knowledge base:
+
+    python3 tools/docs/build_docs.py
+
+Run the look scenes first; `dev/shots/` is git-ignored, so a fresh clone has no
+pictures to embed. The published copy lives at a private artifact link recorded
+at the top of that script, and is republished to the same URL so the link never
+changes.
+
 ## Credit
 
 Every hull came from Sketchfab under CC Attribution and must be credited. Each
