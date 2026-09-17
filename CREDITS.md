@@ -1,8 +1,8 @@
 # Credits
 
-## Ship models
+## Models
 
-All five hulls are from Sketchfab under CC Attribution and must be credited.
+Every model is from Sketchfab under CC Attribution and must be credited.
 
 # Alreigh Burke Destroyer
 
@@ -30,6 +30,16 @@ must appear in the game's credits screen or README before release.
 - License: CC Attribution
 - Requirements: Author must be credited. Commercial use is allowed.
 - Source: https://sketchfab.com/3d-models/littorio-battleship-08078797bf334d749d73002e85d9282f
+
+Downloaded from Sketchfab. If the license says Attribution, this credit
+must appear in the game's credits screen or README before release.
+
+# Low Poly WW2 Fighter Planes
+
+- Author: Designed By Jonathan
+- License: CC Attribution
+- Requirements: Author must be credited. Commercial use is allowed.
+- Source: https://sketchfab.com/3d-models/low-poly-ww2-fighter-planes-178d997fe379407eaa5c710f910f5d5a
 
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
