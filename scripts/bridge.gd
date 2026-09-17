@@ -33,6 +33,7 @@ const ENEMY_RANGE := 6400.0    ## metres to the middle of the enemy's water
 const ENEMY_BEARING := 34.0    ## degrees off the starboard bow
 const WATCH_FOV := 62.0
 const SIGHT_FOV := 8.5
+const PLOT_FOV := 62.0
 const LAY_TOLERANCE := 1.6     ## degrees the sight may be off and still fire
 const LOOK_SENSITIVITY := 0.0022
 
@@ -230,10 +231,12 @@ func _place_head_for(which: Mode) -> void:
 			# measured from the plot surface rather than from the table's feet,
 			# which is a metre of difference and the reason the first attempt
 			# put the player's nose on the glass.
-			var stand := Transform3D(Basis(), Vector3(0.0, PlotTable.HEIGHT, 0.0))
-			var eye_local: Vector3 = (table.global_transform * stand * Vector3(0.0, 1.45, 1.75))
-			var at_local: Vector3 = (table.global_transform * stand * Vector3(0.0, 0.0, -0.1))
-			_move_head(flagship.to_local(eye_local), flagship.to_local(at_local), 55.0)
+			# Square on to the plot and far enough back to see all of it. The
+			# table works this out from its own surface, because the plot is
+			# tipped and "above the table" and "in front of the plot" are two
+			# different directions.
+			var pose: Array = table.reading_pose(PLOT_FOV)
+			_move_head(flagship.to_local(pose[0]), flagship.to_local(pose[1]), PLOT_FOV)
 		Mode.SIGHT:
 			var sight_eye := bridge_position() + Vector3(0.0, 0.18, -1.3)
 			_move_head(sight_eye, sight_eye + _to_enemy(), SIGHT_FOV)
@@ -291,7 +294,9 @@ func _unhandled_input(event: InputEvent) -> void:
 					fire()
 				elif mode != Mode.SIGHT and Board.in_bounds(marked):
 					set_mode(Mode.SIGHT)
-			KEY_ESCAPE:
+			KEY_BACKSPACE:
+				# ESC belongs to the pause screen; this is the way back to
+				# looking out of the windows without leaving the battle.
 				set_mode(Mode.WATCH)
 
 func _look(relative: Vector2) -> void:

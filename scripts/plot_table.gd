@@ -17,9 +17,19 @@ extends Node3D
 
 signal cell_picked(cell: Vector2i)
 
-const TOP := Vector2(2.6, 1.9)   ## metres, fore-aft by athwartships
-const HEIGHT := 0.95
-const TILT := 9.0                ## degrees, tipped up towards the reader
+## Metres. Deliberately smaller than the first one, which was two and a half
+## metres across - a fine table for a room with space around it, and far too big
+## for this one. To read a board that size square-on you have to stand nearly
+## two metres back from it, and a wheelhouse two and a half metres high has
+## nowhere to put a reader that far away: the camera ended up pushed through the
+## port bulkhead, looking back into the room at the edge of the plot.
+const TOP := Vector2(1.75, 1.30)
+const HEIGHT := 0.92
+## Tipped well up towards whoever is reading it, like the angled face of a
+## console rather than a flat table top. Lying almost flat, the far rows are
+## badly foreshortened: the squares at the top of the plot are a third the size
+## of the ones at the bottom, which makes them hard to read and hard to hit.
+const TILT := 40.0
 const RESOLUTION := 700
 
 var chart: GridView
@@ -58,7 +68,11 @@ func _build() -> void:
 	# The plot itself, tipped towards whoever is reading it.
 	_plane_node = Node3D.new()
 	_plane_node.position = Vector3(0.0, HEIGHT, 0.0)
-	_plane_node.rotation.x = -deg_to_rad(TILT)
+	# Tipped towards the reader, not away. The sign matters: the plot is a
+	# single-sided surface, so tipping it the other way at any real angle shows
+	# the player the back of it - which culls to nothing, leaving them looking
+	# at the table's casing and legs and wondering where the chart went.
+	_plane_node.rotation.x = deg_to_rad(TILT)
 	add_child(_plane_node)
 
 	var casing := BoxMesh.new()
@@ -123,13 +137,33 @@ func _build() -> void:
 	# A shaded lamp over the plot, because a lit table with no lamp above it
 	# reads as a television lying on its back.
 	var lamp := SpotLight3D.new()
-	lamp.position = Vector3(0.0, 1.5, 0.35)
+	lamp.position = Vector3(0.0, 1.62, 0.55)
 	lamp.rotation.x = -PI / 2.0 + deg_to_rad(12.0)
 	lamp.light_color = Color(1.0, 0.92, 0.78)
-	lamp.light_energy = 1.6
+	# Low. The plot carries its own light, so the lamp is here to say where the
+	# light is coming from, not to illuminate the chart - turned up it burns a
+	# white hole through the middle of the board.
+	lamp.light_energy = 0.4
 	lamp.spot_range = 2.6
-	lamp.spot_angle = 38.0
+	lamp.spot_angle = 46.0
 	add_child(lamp)
+
+## Where to stand to read the plot: straight out along its own face, far enough
+## back that the whole board fits.
+##
+## Worked out from the surface's transform rather than written down as offsets
+## from the table's feet, because the plot is tipped and those are two different
+## directions. Offsets guessed in the table's frame put the reader's nose on the
+## glass, and then - once the tilt went up - behind it entirely.
+func reading_pose(vertical_fov_degrees: float) -> Array:
+	var normal: Vector3 = _surface.global_transform.basis.z.normalized()
+	var centre: Vector3 = _surface.global_position
+	# The distance at which the board's longer side just fills the view, plus a
+	# margin so it is not jammed against the edges of the screen.
+	# The margin leaves room at the bottom of the screen for the instruction
+	# line and the buttons, which otherwise sit across the last row of squares.
+	var reach: float = (TOP.y * 1.52) / (2.0 * tan(deg_to_rad(vertical_fov_degrees) * 0.5))
+	return [centre + normal * reach, centre]
 
 func set_board(board: Board) -> void:
 	chart.set_board(board)
@@ -141,7 +175,13 @@ func refresh() -> void:
 ## that misses the plot entirely.
 func pick(from: Vector3, direction: Vector3) -> Vector2i:
 	var plane_origin := _surface.global_position
-	var normal := _surface.global_transform.basis.y.normalized()
+	# basis.z, not basis.y. A QuadMesh lies in its own XY plane and faces +Z,
+	# so +Z is the way out of the chart; +Y runs up the chart's face. Taking Y
+	# as the normal describes a plane at right angles to the plot, and every
+	# click lands on that instead - which still returns a square, and still
+	# returns the middle square when you click the middle, so it hid behind
+	# every test that only ever clicked the centre.
+	var normal := _surface.global_transform.basis.z.normalized()
 	var facing := normal.dot(direction)
 	if absf(facing) < 0.0001:
 		return Vector2i(-1, -1)
@@ -154,9 +194,24 @@ func pick(from: Vector3, direction: Vector3) -> Vector2i:
 	# laid flat, so y is the fore-aft direction on the table.
 	var u := local.x / TOP.x + 0.5
 	var v := 0.5 - local.y / TOP.y
+
 	if u < 0.0 or u > 1.0 or v < 0.0 or v > 1.0:
 		return Vector2i(-1, -1)
 	return chart.cell_at(Vector2(u, v) * float(RESOLUTION))
+
+## The middle of one square, out in the world. The exact inverse of pick(), so
+## the two can be checked against each other.
+func cell_world_position(cell: Vector2i) -> Vector3:
+	var u := (float(cell.x) + 0.5) / float(Board.SIZE)
+	var v := (float(cell.y) + 0.5) / float(Board.SIZE)
+	# The chart is drawn into a square viewport but the plot is wider than it is
+	# deep, so the chart's own margins have to be undone the same way pick()
+	# reads them.
+	var on_chart := Vector2(u, v) * float(RESOLUTION)
+	var rect := chart.cell_rect(chart.cell_at(on_chart))
+	var middle := rect.get_center() / float(RESOLUTION)
+	var local := Vector3((middle.x - 0.5) * TOP.x, (0.5 - middle.y) * TOP.y, 0.0)
+	return _surface.global_transform * local
 
 func hover(cell: Vector2i) -> void:
 	if cell == hovered:
