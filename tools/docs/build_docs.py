@@ -3,16 +3,15 @@
 
 Every game of Luqman's keeps one living HTML record - the idea, the planning,
 every decision and method, the session logs, and the screenshots with their
-explanations - held in the repo and republished to a private artifact link that
-never changes. This is the generator: the project notes stay the source of
-truth and the page is rebuilt from them.
+explanations - held in the repo and published as a website whose link never
+changes. This is the generator: the project notes stay the source of truth and
+the page is rebuilt from them.
 
     python3 tools/docs/build_docs.py
-    python3 tools/docs/build_docs.py --artifact <file.html>   # also a copy to publish
+    python3 tools/docs/build_docs.py --publish                # and put it on the website
 
-ARTIFACT: https://claude.ai/artifact/7q8gjEU9rWY2EoYerGeZPP
-Republish the --artifact copy to that URL (the Artifact tool's `url`) so the
-link never changes.
+SITE: https://luqman-docs.netlify.app/direct-hit/
+Run `docs-site publish` after building to put the new page there.
 
 The machinery here - the markdown converter, the image embedding, the page
 template - was ported from referee-for-fun's build_docs.py, which is the
@@ -49,6 +48,7 @@ PROJECT = pathlib.Path(__file__).resolve().parents[2]
 KNOWLEDGE = pathlib.Path(os.environ.get(
     "KNOWLEDGE", pathlib.Path.home() / ".claude/knowledge/projects/direct-hit"))
 OUT = PROJECT / "docs" / "index.html"
+SITE = "https://luqman-docs.netlify.app/direct-hit/"   # the page on the documentation website
 SHOTS = PROJECT / "dev" / "shots"
 IMAGE_WIDTH = 880
 IMAGE_QUALITY = 62
@@ -673,21 +673,14 @@ openTarget();
 </body>
 </html>
 """
-def publishable(document):
-    document = re.sub(r"^<!doctype html>\s*<html[^>]*>\s*<head>\s*", "", document, flags=re.I)
-    document = re.sub(r'<meta charset="utf-8">\s*<meta name="viewport"[^>]*>\s*', "", document)
-    return document.replace("</head>\n<body>\n", "", 1).replace("</body>\n</html>\n", "")
-
 
 if __name__ == "__main__":
     import sys
     OUT.parent.mkdir(exist_ok=True)
     document = page()
     OUT.write_text(document)
-    if "--artifact" in sys.argv:
-        target = pathlib.Path(sys.argv[sys.argv.index("--artifact") + 1])
-        target.write_text(publishable(document))
-        print(f"wrote {target} for publishing")
+    if "--publish" in sys.argv:
+        subprocess.run(["docs-site", "publish"], check=True)
     size = OUT.stat().st_size / 1024 / 1024
     print(f"wrote {OUT.relative_to(PROJECT)}  ({size:.1f} MB)")
     if missing:
