@@ -112,6 +112,10 @@ func _battle() -> void:
 	game._on_shot_requested(first)
 	await get_tree().process_frame
 	_check("a called square is fired at", Game.boards[Game.OPPONENT].already_shot(first))
+	game.bridge.clear_mark()
+	_check("the mark is dropped once the shot has landed",
+		not Board.in_bounds(game.bridge.marked) and not game.bridge.can_fire,
+		"otherwise firing again only earns 'you have already shot there'")
 
 	# Play the rest out through the rules, the way the bridge would.
 	var shots := 1

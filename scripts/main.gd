@@ -205,6 +205,7 @@ func _after_shot() -> void:
 			"%s takes the next shot." % PLAYER_NAMES[Game.current_player],
 			func(): _open_battle())
 		return
+	bridge.clear_mark()
 	if Game.current_player == Game.OPPONENT:
 		_say("They have our range.")
 		await get_tree().create_timer(1.2).timeout
@@ -216,8 +217,8 @@ func _after_shot() -> void:
 			_say("%s hit." % result["ship_name"] if result["outcome"] != "miss" else "Short. They missed.")
 		_after_shot()
 	else:
-		bridge.can_fire = false
-		_say("Your shot.")
+		bridge.clear_mark()
+		_say("Your shot. T for the plotting table.")
 
 # ---------------------------------------------------------------- cutscene
 

@@ -321,6 +321,17 @@ func lay_error() -> float:
 	var aim := -camera.global_transform.basis.z
 	return rad_to_deg(aim.angle_to(to_target))
 
+## Forget the square that was called. A target that stays marked after the shot
+## has landed invites the player to fire at it again, and all that earns them is
+## "you have already shot there" - so the mark is dropped and the sight sends
+## them back to the table for a new one.
+func clear_mark() -> void:
+	marked = Vector2i(-1, -1)
+	can_fire = false
+	if table != null:
+		table.chart.last_shot = Vector2i(-1, -1)
+		table.refresh()
+
 func fire() -> void:
 	if not Board.in_bounds(marked):
 		return
