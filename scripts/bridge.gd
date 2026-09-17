@@ -60,7 +60,23 @@ var _pose_tween: Tween
 var hud: BridgeHud
 ## Only a real game grabs the mouse. A look scene that captured the pointer
 ## would take the cursor away from whoever is running it.
-var capture_mouse := false
+var capture_mouse := false:
+	set(value):
+		capture_mouse = value
+		refresh_mouse_mode()
+
+## Put the pointer in the state this mode needs.
+##
+## This has to be able to run at any time, not only when the mode changes. The
+## battle used to be opened by changing mode first and turning capture on
+## afterwards, so the one call that would have grabbed the pointer ran while
+## capture was still off - and the player spent the whole game unable to turn
+## the guns, because the cursor hit the edge of the screen and stopped.
+func refresh_mouse_mode() -> void:
+	if not capture_mouse:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if mode == Mode.PLOT else Input.MOUSE_MODE_CAPTURED
 
 func _ready() -> void:
 	var env := WorldEnvironment.new()
@@ -199,8 +215,7 @@ func set_mode(next: Mode) -> void:
 func _apply_mode(next: Mode) -> void:
 	mode = next
 	_place_head_for(next)
-	if capture_mouse:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if next == Mode.PLOT else Input.MOUSE_MODE_CAPTURED
+	refresh_mouse_mode()
 	if hud != null:
 		hud.mode = int(next)
 		hud.queue_redraw()
@@ -247,6 +262,11 @@ func _move_head(eye: Vector3, looking_at: Vector3, fov: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and mode != Mode.PLOT:
 		_look(event.relative)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		# Right click turns the ship being laid. R does the same, but a player
+		# with one hand on the mouse should not have to find the keyboard.
+		if placing:
+			turn_ship()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if mode == Mode.PLOT:
 			var cell := _pick_table(event.position)
@@ -361,174 +381,34 @@ func _update_hud() -> void:
 		hud.range_metres = 0.0
 		hud.target_visible = false
 	hud.queue_redraw()
-# ------------------------------------------------------------- the bridge set
+# -------------------------------------------------------------- the wheelhouse
 
-## Everything the player can reach.
+## The room the player stands in.
 ##
-## A hull model bought for use at half a mile has no bridge worth standing on -
-## its superstructure is a few boxes and a mast. So the near geometry is built
-## here: the platform underfoot, the splinter-proof bulwark to lean on, the
-## compass, the voice pipes and the plotting table. All of it sits in front of
-## the model's own structure, which stays where it is good - the deck and
-## turrets below and ahead.
-##
-## Dimensions are metres, so they can simply be the real ones: a bulwark 1.15
-## high to lean on, a compass at 1.2, a deck eleven metres across.
+## A hull model bought for use at half a mile has no bridge worth standing in,
+## so the wheelhouse is built in code and mounted on the ship where her real one
+## was: forward on the superstructure, on the centre line, with its deck
+## twenty-four metres above the sea. What the bought hull provides is everything
+## beyond the windows - the foredeck and the turrets - which is the distance it
+## is good at.
 
-const EYE_ABOVE_DECK := 1.62
-const BULWARK_HEIGHT := 1.15
-const PLATFORM := Vector2(7.0, 11.0)   ## fore-aft, athwartships
+var wheelhouse: Wheelhouse
+var table_anchor: Node3D
 
-var bridge_set: Node3D
-var table_anchor: Node3D    ## where the plotting table's own scene is mounted
-
-## Where the bridge platform sits on the ship: forward on the superstructure,
-## on the centre line, twenty-four metres above the sea - about where the
-## Littorio's own bridge was.
+## Where the wheelhouse's own deck sits on the ship.
 func deck_position() -> Vector3:
-	return Vector3(_length * 0.40, 24.0 - EYE_ABOVE_DECK, 0.0)
+	return Vector3(_length * 0.40, 24.0 - Wheelhouse.EYE.y, 0.0)
 
-## Where the player's eyes are: right at the forward bulwark, not back in the
-## middle of the platform.
-##
-## This matters more than it sounds. A bulwark is a solid wall half a metre
-## below eye level, and how much of your own ship you can see over it depends
-## entirely on how close you stand to it. Three metres back it cuts off
-## everything below eight degrees, which is the whole foredeck. With your waist
-## against it you can see down at nearly forty, which is how anyone on a real
-## bridge actually stands.
+## Where the player's eyes are: inside the wheelhouse, at the forward windows.
 func bridge_position() -> Vector3:
-	return deck_position() + Vector3(-PLATFORM.x * 0.5 + 0.85, EYE_ABOVE_DECK, 0.0)
+	return deck_position() + Wheelhouse.EYE
 
 func _build_bridge_set() -> void:
-	bridge_set = Node3D.new()
-	bridge_set.name = "BridgeSet"
-	bridge_set.position = deck_position()
-	flagship.add_child(bridge_set)
-
-	var steel := _painted_steel(Color(0.30, 0.33, 0.35))
-	var dark := _painted_steel(Color(0.17, 0.19, 0.21))
-	var brass := _brass()
-
-	# The deck underfoot. Set a little low so the bulwark reads as something
-	# you stand behind rather than a kerb you would trip over.
-	bridge_set.add_child(_slab(Vector3(PLATFORM.x, 0.30, PLATFORM.y), Vector3(0.0, -0.15, 0.0), dark))
-
-	# Bulwark: forward face and two sides, open at the back where the ship's
-	# own superstructure closes it in.
-	var half_x := PLATFORM.x * 0.5
-	var half_z := PLATFORM.y * 0.5
-	var thickness := 0.18
-	bridge_set.add_child(_slab(
-		Vector3(thickness, BULWARK_HEIGHT, PLATFORM.y),
-		Vector3(-half_x, BULWARK_HEIGHT * 0.5, 0.0), steel))
-	for side in [-1.0, 1.0]:
-		bridge_set.add_child(_slab(
-			Vector3(PLATFORM.x, BULWARK_HEIGHT, thickness),
-			Vector3(0.0, BULWARK_HEIGHT * 0.5, half_z * side), steel))
-
-	# A rail capping the bulwark, which is what the eye reads as "waist height".
-	bridge_set.add_child(_rail(Vector3(-half_x, BULWARK_HEIGHT + 0.05, 0.0), PLATFORM.y, true, steel))
-	for side in [-1.0, 1.0]:
-		bridge_set.add_child(_rail(Vector3(0.0, BULWARK_HEIGHT + 0.05, half_z * side), PLATFORM.x, false, steel))
-
-	# The compass, dead ahead on the centre line where the officer of the watch
-	# would stand.
-	bridge_set.add_child(_binnacle(Vector3(-half_x + 2.1, 0.0, 0.0), steel, brass))
-
-	# Two voice pipes, because an empty bridge reads as a balcony.
-	for side in [-1.0, 1.0]:
-		bridge_set.add_child(_voice_pipe(Vector3(-half_x + 0.7, 0.0, 3.4 * side), brass))
-
-	# Where the plotting table goes. It is built by its own script, because it
-	# has a live chart on it and has to be clicked.
-	table_anchor = Node3D.new()
-	table_anchor.name = "TableAnchor"
-	table_anchor.position = Vector3(1.3, 0.0, -2.9)
-	table_anchor.rotation.y = deg_to_rad(28.0)
-	bridge_set.add_child(table_anchor)
-
-func _slab(size: Vector3, at: Vector3, material: Material) -> MeshInstance3D:
-	var box := BoxMesh.new()
-	box.size = size
-	var node := MeshInstance3D.new()
-	node.mesh = box
-	node.material_override = material
-	node.position = at
-	return node
-
-func _rail(at: Vector3, length: float, along_z: bool, material: Material) -> MeshInstance3D:
-	var pipe := CylinderMesh.new()
-	pipe.top_radius = 0.05
-	pipe.bottom_radius = 0.05
-	pipe.height = length
-	var node := MeshInstance3D.new()
-	node.mesh = pipe
-	node.material_override = material
-	node.position = at
-	node.rotation = Vector3(deg_to_rad(90.0), 0.0, 0.0) if along_z else Vector3(0.0, 0.0, deg_to_rad(90.0))
-	return node
-
-func _binnacle(at: Vector3, steel: Material, brass: Material) -> Node3D:
-	var holder := Node3D.new()
-	holder.position = at
-	var column := CylinderMesh.new()
-	column.top_radius = 0.13
-	column.bottom_radius = 0.19
-	column.height = 0.95
-	var stand := MeshInstance3D.new()
-	stand.mesh = column
-	stand.material_override = steel
-	stand.position.y = 0.48
-	holder.add_child(stand)
-
-	var bowl := SphereMesh.new()
-	bowl.radius = 0.17
-	bowl.height = 0.28
-	var head_piece := MeshInstance3D.new()
-	head_piece.mesh = bowl
-	head_piece.material_override = brass
-	head_piece.position.y = 1.03
-	holder.add_child(head_piece)
-	return holder
-
-func _voice_pipe(at: Vector3, brass: Material) -> Node3D:
-	var holder := Node3D.new()
-	holder.position = at
-	var tube := CylinderMesh.new()
-	tube.top_radius = 0.04
-	tube.bottom_radius = 0.04
-	tube.height = 1.15
-	var stem := MeshInstance3D.new()
-	stem.mesh = tube
-	stem.material_override = brass
-	stem.position.y = 0.58
-	holder.add_child(stem)
-
-	var mouth := CylinderMesh.new()
-	mouth.top_radius = 0.11
-	mouth.bottom_radius = 0.04
-	mouth.height = 0.18
-	var bell := MeshInstance3D.new()
-	bell.mesh = mouth
-	bell.material_override = brass
-	bell.position.y = 1.24
-	holder.add_child(bell)
-	return holder
-
-func _painted_steel(colour: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = colour
-	m.roughness = 0.62
-	m.metallic = 0.25
-	return m
-
-func _brass() -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.36, 0.30, 0.19)
-	m.roughness = 0.42
-	m.metallic = 0.65
-	return m
+	wheelhouse = Wheelhouse.new()
+	wheelhouse.name = "Wheelhouse"
+	wheelhouse.position = deck_position()
+	flagship.add_child(wheelhouse)
+	table_anchor = wheelhouse.table_anchor
 
 # --------------------------------------------------------------- the guns
 
