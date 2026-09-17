@@ -59,22 +59,28 @@ _cache.mkdir(exist_ok=True)
 
 
 GALLERIES = [
-    ("screens-board", "The board", "The chart is drawn rather than assembled from sprites, so it scales with the window and the burst on a hit never turns blurry. The title screen is the cutscene's own ocean, running live behind the words.", [
-        ("ui_menu", "The title screen: the game's real sea with a ship under way on it, aimed above her so the words sit in clear sky."),
-        ("ui_placement_preview", "Laying the fleet out. The ghost shows where she would go and whether that is legal; R turns her."),
-        ("ui_placement_full", "Scattered instead - the whole fleet dropped somewhere legal at once."),
-        ("ui_battle_fresh", "Two charts: your own waters with your fleet on them, and the enemy's with nothing but water."),
-        ("ui_battle_played", "Mid-match. Misses are flat discs, hits are eight-pointed bursts, and the cruiser has been struck through on the enemy's fleet list."),
-        ("ui_cutscene_overlay", "The cutscene as it appears in play: the banner names the vessel and the square."),
-        ("ui_handover", "Two people, one device. Nobody sees the other's board."),
+    ("screens-bridge", "The bridge", "There is no chart on a screen. The player stands on the Littorio's bridge with their own fleet in company, and everything within arm's reach - the platform, the bulwark, the rail, the compass, the voice pipes, the plotting table - is built in code, because a hull model bought for use at half a mile does not survive being stood on. The bought hull provides the foredeck and turrets below and ahead, which is the distance it is good at.", [
+        ("ui_menu", "The title screen is the game: the bridge, under way, with two of your escorts on the beams."),
+        ("br_ahead", "Looking forward over the bulwark. How much of your own ship you can see over it depends entirely on how close you stand - three metres back it cuts off the whole foredeck, so the player stands at the rail."),
+        ("ui_battle_watch", "On station, waiting. The fleet of five the player lays out is the fleet around them."),
+        ("ui_war_horizon", "Somebody else's battle: wrecks burning across the bows, aircraft going over, gunfire on the horizon."),
     ]),
-    ("screens-fleet", "The fleet", "Five real vessels, pulled from Sketchfab under CC Attribution and normalised at load rather than edited. Each is rebuilt to the same number of units per grid square, so a five-square carrier really is two and a half times a two-square destroyer. These are the photographs that caught the submarine sailing stern-first.", [
-        ("carrier_side", "Carrier - five squares. Gerald R. Ford class."),
-        ("battleship_side", "Battleship - four squares. The Littorio, ensign at the stern."),
-        ("cruiser_side", "Cruiser - three squares. Ticonderoga class."),
-        ("submarine_side", "Submarine - three squares. Photographed stern-first at first; the propeller in the render is what gave it away, because a bounding box cannot tell you which end is the bow."),
+    ("screens-table", "The plotting table", "A lit glass plot on the bridge, carrying the same chart the flat version of the game used - rendered into a viewport and used as the table's own surface, so one piece of code decides what a hit, a miss and a sunk ship look like. The fleet is laid out on it before the action and targets are called on it afterwards, so the player has already used the table once before it starts mattering.", [
+        ("ui_placement", "Laying the fleet out: the ghost of the carrier on the plot, five squares, legal where it is."),
+        ("ui_battle_plot", "In action, the table carries the enemy's water instead: misses as flat discs, hits as bursts, the called square in brass."),
+        ("br_plot_table", "The table itself, with the bulwark and a voice pipe beyond it."),
+    ]),
+    ("screens-sight", "The gun sight", "The bearing ribbon is the piece that matters. The plot gives a square, the square gives a bearing, and the ribbon is how the guns get onto it - which is the job a director sight actually did. The first version of this screen laid a lit grid on the enemy's water instead; see the note in Methods for why that could never have worked.", [
+        ("ui_battle_sight", "Eye to the director at eight and a half degrees: the bearing ribbon with the guns and the target nearly together, the elevation ladder, and the designator sitting on the square that was called."),
+        ("br_sight", "Laid on, and free to fire."),
+    ]),
+    ("screens-fleet", "The fleet", "Five real vessels, pulled from Sketchfab under CC Attribution and normalised at load rather than edited. One unit is one metre, and at sixty metres to a grid square four of the five come out within a few per cent of their real lengths. These are the photographs that caught the submarine sailing stern-first, and later every one of them riding with her main deck under water.", [
+        ("carrier_side", "Carrier - five squares, 300 m. Gerald R. Ford class."),
+        ("battleship_side", "Battleship - four squares, 240 m. The Littorio, which is the ship the player stands on."),
+        ("cruiser_side", "Cruiser - three squares, 180 m. Ticonderoga class."),
+        ("submarine_side", "Submarine - three squares. Photographed stern-first at first: a bounding box cannot tell you which end is the bow, but the propeller in a render can."),
         ("destroyer_side", "Destroyer - two squares. Arleigh Burke class."),
-        ("destroyer_top", "From above, to check every hull runs along one axis and sits centred across the beam."),
+        ("battleship_bow", "Close on the bow, which is where too much draft shows first."),
     ]),
 ]
 
