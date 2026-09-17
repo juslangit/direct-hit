@@ -12,7 +12,8 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
 
-Match="*res://scripts/match_state.gd"
+Game="*res://scripts/match_state.gd"
+Sound="*res://scripts/sound.gd"
 
 [display]
 

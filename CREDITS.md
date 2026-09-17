@@ -2,7 +2,7 @@
 
 ## Ship models
 
-### alreigh_burke_destroyer
+All five hulls are from Sketchfab under CC Attribution and must be credited.
 
 # Alreigh Burke Destroyer
 
@@ -14,8 +14,6 @@
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
 
-### gerald_r_ford_aircraft_carrier
-
 # Gerald R Ford aircraft Carrier
 
 - Author: waelXcm
@@ -25,8 +23,6 @@ must appear in the game's credits screen or README before release.
 
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
-
-### littorio_battleship
 
 # LITTORIO BATTLESHIP
 
@@ -38,8 +34,6 @@ must appear in the game's credits screen or README before release.
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
 
-### submarine
-
 # submarine
 
 - Author: Helindu
@@ -49,8 +43,6 @@ must appear in the game's credits screen or README before release.
 
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
-
-### ticonderoga_missile_cruiser
 
 # Ticonderoga Missile Cruiser
 
@@ -62,3 +54,6 @@ must appear in the game's credits screen or README before release.
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
 
+## Sound
+
+All sound is CC0, found with the `sfx` tool. Full provenance in `assets/audio/freesound/SOURCES.md`.

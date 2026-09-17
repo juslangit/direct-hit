@@ -391,6 +391,8 @@ var _sunk := false
 var _hull_box := AABB()
 var _length := 0.0
 var _skipped := false
+var _showcase := false
+var _showcase_angle := 0.0
 
 ## Stage one hit. `report` is the dictionary Board.fire() returned.
 func play(report: Dictionary) -> void:
@@ -402,6 +404,7 @@ func play(report: Dictionary) -> void:
 	var kind: Ship.Kind = report.get("ship_kind", Ship.Kind.DESTROYER)
 	var segment: int = report.get("segment", 0)
 
+	Sound.sea(true)
 	_stage_ship(kind)
 	var hit_local := _hit_position(kind, segment)
 	_impact_point = hit_local
@@ -461,6 +464,7 @@ func _incoming(target: Vector3) -> void:
 	_shell.visible = true
 	_shell.look_at_from_position(from, _ship_pivot.to_global(target), Vector3.UP)
 
+	Sound.play("whistle", -4.0)
 	var tween := create_tween().set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	tween.tween_property(_shell, "position", _ship_pivot.to_global(target), flight)
 	await get_tree().create_timer(flight).timeout
@@ -473,6 +477,7 @@ func _detonate(local_point: Vector3) -> void:
 	_smoke.position.y = max(world_point.y, 2.0)
 	_steam.position = Vector3(world_point.x, 0.5, world_point.z)
 
+	Sound.play("hit", -2.0, randf_range(0.92, 1.05))
 	_fire.restart()
 	_spray.restart()
 	_debris.restart()
@@ -492,6 +497,9 @@ func _detonate(local_point: Vector3) -> void:
 		lean.tween_property(_ship_pivot, "rotation:x", deg_to_rad(-3.5), 1.8)
 
 func _sink() -> void:
+	# A second, deeper report under the first, so a sinking sounds like more
+	# than the same hit again.
+	get_tree().create_timer(0.55).timeout.connect(func(): Sound.play("sink", -1.0, 0.72))
 	# The stern goes first: she rolls toward the hole, settles, and the sea
 	# closes over her. Slow on purpose - this is the shot the player earned.
 	_steam.emitting = true
@@ -518,10 +526,28 @@ func _aftermath() -> void:
 	await get_tree().create_timer(hold).timeout
 
 func _finish() -> void:
+	Sound.sea(false)
 	_smoke.emitting = false
 	_steam.emitting = false
 	_playing = false
 	finished.emit()
+
+## Sail a ship past the camera with nothing happening to her, for the title
+## screen. The menu used to be a dark rectangle with two buttons on it, which
+## told a first-time player nothing about what the game actually is.
+func showcase(kind: Ship.Kind) -> void:
+	_playing = false
+	_showcase = true
+	_stage_ship(kind)
+	_smoke.emitting = false
+	_steam.emitting = false
+	_fire.emitting = false
+	_shell.visible = false
+	_flash.light_energy = 0.0
+	_showcase_angle = 0.0
+
+func stop_showcase() -> void:
+	_showcase = false
 
 ## Cut it short - the player has seen enough.
 func skip() -> void:
@@ -531,12 +557,33 @@ func skip() -> void:
 	_shell.visible = false
 	_finish()
 
+## A slow arc around the ship, plus the gentlest roll, so the title screen is
+## alive without ever drawing attention to itself.
+func _drift(delta: float) -> void:
+	_showcase_angle += delta * 0.055
+	var radius: float = _length * 1.05
+	var middle := Vector3(_length * 0.5, _hull_box.size.y * 0.35, 0.0)
+	_camera.position = middle + Vector3(
+		cos(_showcase_angle) * radius * 0.45,
+		_length * 0.16 + sin(_showcase_angle * 0.7) * _length * 0.03,
+		-radius
+	)
+	# Aimed above her, so she rides the lower third of the title screen and
+	# the words sit in clear sky rather than across her masts.
+	_camera.look_at(_ship_pivot.to_global(middle + Vector3(0.0, _length * 0.20, 0.0)), Vector3.UP)
+	_ship_pivot.rotation.z = sin(_sailing * 0.55) * deg_to_rad(1.4)
+	_ship_pivot.rotation.x = sin(_sailing * 0.38 + 1.1) * deg_to_rad(0.8)
+
 func _process(delta: float) -> void:
 	if _ship_pivot == null:
 		return
 	_sailing += delta
-	if _playing:
+	if _playing or _showcase:
 		_ship_pivot.position.x += SAIL_SPEED * delta
+
+	if _showcase:
+		_drift(delta)
+		return
 
 	# Always keep the camera pointed at the wound, and shake it when the
 	# shell lands. The shake decays rather than stopping, because a cut from
