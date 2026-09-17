@@ -1,11 +1,11 @@
 extends Node
 
-## The bridge, in each of the three things the player can be doing.
+## Inside the wheelhouse, looking each way.
 ##
-## Everything here is a judgement a person has to make: whether the foredeck
-## reads as your own ship, whether the fleet around you looks like a fleet,
-## whether the plot on the water can be found at six kilometres, and whether
-## the gun sight feels like an optic rather than a cursor.
+## Everything about this is a judgement a person has to make: whether it reads
+## as a room rather than a floating platform, whether the window frame holds the
+## sea without hiding your own foredeck, and whether the fittings behind you
+## look like a bridge or like boxes on a floor.
 
 const SHOTS := "res://dev/shots/"
 
@@ -16,9 +16,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	bridge = (load("res://scenes/bridge.tscn") as PackedScene).instantiate()
 	add_child(bridge)
-	await get_tree().create_timer(0.5).timeout
+	await get_tree().create_timer(0.6).timeout
 
-	# An enemy board part way through a battle, so the plot has something on it.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var board := Board.new()
@@ -29,33 +28,36 @@ func _ready() -> void:
 	bridge._on_cell_picked(Vector2i(6, 4))
 	await get_tree().process_frame
 
-	await _watch("br_ahead", 0.0, -2.0)
-	await _watch("br_enemy_bearing", -34.0, -1.0)
-	await _watch("br_port_beam", 78.0, -4.0)
-	await _watch("br_astern", 175.0, -3.0)
+	await _watch("br_ahead", 0.0, -3.0)
+	await _watch("br_ahead_down", 0.0, -20.0)
+	await _watch("br_port_window", 88.0, -4.0)
+	await _watch("br_the_wheel", 172.0, -9.0)
+	await _watch("br_aft_quarter", 128.0, -6.0)
 
-	bridge.set_mode(1)  # PLOT
-	await get_tree().create_timer(0.8).timeout
+	bridge.set_mode(1)
+	await get_tree().create_timer(0.9).timeout
 	await _save("br_plot_table")
 
-	bridge.set_mode(2)  # SIGHT
-	await get_tree().create_timer(0.8).timeout
+	bridge.set_mode(2)
+	await get_tree().create_timer(0.9).timeout
 	await _save("br_sight")
 
 	print("bridge views written")
 	get_tree().quit()
 
-## Point the head somewhere, in degrees off the bow, and photograph it.
+## Point the head so many degrees off the bow - positive to starboard - and
+## photograph it.
 func _watch(name: String, off_bow: float, pitch: float) -> void:
 	bridge.set_mode(0)
 	await get_tree().process_frame
-	bridge._yaw = deg_to_rad(90.0 - off_bow)
+	bridge._yaw = deg_to_rad(90.0 + off_bow)
 	bridge._pitch = deg_to_rad(pitch)
 	bridge.head.rotation.y = bridge._yaw
 	bridge.camera.rotation.x = bridge._pitch
 	await _save(name)
 
 func _save(name: String) -> void:
+	await get_tree().create_timer(0.35).timeout
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()

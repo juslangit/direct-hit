@@ -57,12 +57,14 @@ func _show(which: String) -> void:
 	# The bridge's own instruments belong to the bridge. With a menu up they
 	# are telling the player about keys that do nothing yet.
 	bridge.hud.visible = which == ""
-	if which != "":
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _new_screen(name: String, centred := true) -> VBoxContainer:
 	var holder := VBoxContainer.new()
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The holder covers the whole screen, and a Control that covers the whole
+	# screen swallows every click before it reaches the world behind it. The
+	# buttons inside it still get their own clicks; the empty space must not.
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.alignment = BoxContainer.ALIGNMENT_CENTER if centred else BoxContainer.ALIGNMENT_END
 	holder.add_theme_constant_override("separation", 18)
 	ui.add_child(holder)
@@ -144,8 +146,9 @@ func _update_place_hint() -> void:
 	ready_button.disabled = true
 	var kind: Ship.Kind = bridge.placing_kind()
 	var who := "" if Game.mode == Game.Mode.VS_AI else "%s - " % PLAYER_NAMES[_placing_player]
-	place_hint.text = "%sLay the %s on the plot - %d squares. R turns her." % [
-		who, Ship.SPECS[kind]["name"], Ship.SPECS[kind]["length"]]
+	var lying := "across" if bridge.placing_horizontal else "up and down"
+	place_hint.text = "%sLay the %s on the plot - %d squares, lying %s. R or right click turns her." % [
+		who, Ship.SPECS[kind]["name"], Ship.SPECS[kind]["length"], lying]
 
 func _finish_placement() -> void:
 	if not bridge.fleet_is_laid_out():
@@ -161,8 +164,10 @@ func _finish_placement() -> void:
 func _open_battle() -> void:
 	Game.phase = Game.Phase.PLAYING
 	bridge.finish_placement(Game.boards[1 - Game.current_player])
-	bridge.set_mode(0)
+	# The screen goes first. Handing the bridge the mouse and then telling it
+	# which mode it is in is the wrong way round - see refresh_mouse_mode.
 	_show("")
+	bridge.set_mode(0)
 	_say("Find them. T for the plotting table.")
 
 func _say(text: String) -> void:

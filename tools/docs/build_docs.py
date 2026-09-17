@@ -59,16 +59,16 @@ _cache.mkdir(exist_ok=True)
 
 
 GALLERIES = [
-    ("screens-bridge", "The bridge", "There is no chart on a screen. The player stands on the Littorio's bridge with their own fleet in company, and everything within arm's reach - the platform, the bulwark, the rail, the compass, the voice pipes, the plotting table - is built in code, because a hull model bought for use at half a mile does not survive being stood on. The bought hull provides the foredeck and turrets below and ahead, which is the distance it is good at.", [
-        ("ui_menu", "The title screen is the game: the bridge, under way, with two of your escorts on the beams."),
-        ("br_ahead", "Looking forward over the bulwark. How much of your own ship you can see over it depends entirely on how close you stand - three metres back it cuts off the whole foredeck, so the player stands at the rail."),
-        ("ui_battle_watch", "On station, waiting. The fleet of five the player lays out is the fleet around them."),
+    ("screens-bridge", "Inside the wheelhouse", "The player stands in an enclosed steel wheelhouse mounted where the Littorio's own bridge was: a deck underfoot, four bulkheads, a deckhead overhead, a band of windows forward and one each side, and the fittings a bridge actually has. It is all built in code, because a hull model bought for use at half a mile does not survive being stood in. What the bought hull provides is everything beyond the windows - the foredeck and the turrets - which is the distance it is good at. An earlier version put the player on an open platform on top of the ship, which read as standing on the roof.", [
+        ("br_ahead", "Forward through the window band: mullions, the sill with its grab rail, the deckhead, and your own foredeck held inside the frame. How far back the player stands is the whole difference between a room and a window pressed against your face."),
+        ("br_the_wheel", "Turning round: the wheel on its pedestal, an engine telegraph either side, the doorway aft, and the plotting table to port."),
+        ("ui_menu", "The title screen is the game: the wheelhouse, under way, with your escorts on the beams."),
         ("ui_war_horizon", "Somebody else's battle: wrecks burning across the bows, aircraft going over, gunfire on the horizon."),
     ]),
     ("screens-table", "The plotting table", "A lit glass plot on the bridge, carrying the same chart the flat version of the game used - rendered into a viewport and used as the table's own surface, so one piece of code decides what a hit, a miss and a sunk ship look like. The fleet is laid out on it before the action and targets are called on it afterwards, so the player has already used the table once before it starts mattering.", [
         ("ui_placement", "Laying the fleet out: the ghost of the carrier on the plot, five squares, legal where it is."),
         ("ui_battle_plot", "In action, the table carries the enemy's water instead: misses as flat discs, hits as bursts, the called square in brass."),
-        ("br_plot_table", "The table itself, with the bulwark and a voice pipe beyond it."),
+        ("br_plot_table", "The table itself, inside the wheelhouse, with a voice pipe beyond it and the sea through the side window."),
     ]),
     ("screens-sight", "The gun sight", "The bearing ribbon is the piece that matters. The plot gives a square, the square gives a bearing, and the ribbon is how the guns get onto it - which is the job a director sight actually did. The first version of this screen laid a lit grid on the enemy's water instead; see the note in Methods for why that could never have worked.", [
         ("ui_battle_sight", "Eye to the director at eight and a half degrees: the bearing ribbon with the guns and the target nearly together, the elevation ladder, and the designator sitting on the square that was called."),

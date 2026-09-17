@@ -21,6 +21,9 @@ func _ready() -> void:
 	await _battle()
 	await _two_players()
 
+	# Give the pointer back to whoever is running this.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
 	print("")
 	if failures == 0:
 		print("FLOW: all checks passed")
@@ -58,6 +61,28 @@ func _laying_out() -> void:
 	game.bridge._place_ship(Vector2i(1, 1))
 	_check("a click lays a ship down", Game.boards[Game.HUMAN].ships.size() == before + 1)
 
+	# Nothing may cover the world and eat the clicks meant for the table.
+	var swallowing := []
+	for name in game.screens:
+		if game.screens[name].mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			swallowing.append(name)
+	_check("no full-screen panel swallows clicks meant for the plot",
+		swallowing.is_empty(), "%s would" % str(swallowing))
+
+	# A ship has to be layable up and down as well as across.
+	var was: bool = game.bridge.placing_horizontal
+	game.bridge.turn_ship()
+	_check("turning her changes how she lies", game.bridge.placing_horizontal != was)
+	game.bridge._preview(Vector2i(4, 4))
+	var ghost: Array = game.bridge.table.chart.preview_cells
+	var down: bool = ghost.size() > 1 and ghost[0].x == ghost[1].x
+	_check("turned, she lies up and down the plot", down,
+		"ghost ran %s" % ("down" if down else "across"))
+	var placed_vertically: bool = game.bridge.own_board.place(
+		game.bridge.placing_kind(), Vector2i(8, 2), false)
+	_check("she can be laid up and down", placed_vertically)
+	game.bridge.turn_ship()
+
 	game.bridge.scatter_fleet(Game.rng)
 	game._update_place_hint()
 	_check("scattering fills the fleet", game.bridge.fleet_is_laid_out())
@@ -68,6 +93,12 @@ func _battle() -> void:
 	game._finish_placement()
 	await get_tree().process_frame
 	_check("no screen stands in front of the bridge", not game.screens["placement"].visible)
+	# Without this the player cannot turn the guns at all: the pointer hits the
+	# edge of the screen and the sight stops.
+	_check("the bridge has the mouse once the battle starts", game.bridge.capture_mouse)
+	_check("the pointer is actually captured",
+		Input.mouse_mode == Input.MOUSE_MODE_CAPTURED,
+		"mouse_mode was %d" % Input.mouse_mode)
 	_check("the table has changed to the enemy's water",
 		game.bridge.table.chart.board == Game.boards[Game.OPPONENT])
 	# The one that matters: the plot must not draw the enemy's hulls.
