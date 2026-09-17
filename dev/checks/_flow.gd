@@ -1,24 +1,25 @@
 extends Node
 
 ## Can a whole match be played from the menu to the last ship, and does the
-## screen ever show something the player is not entitled to see?
+## bridge ever show something the player is not entitled to see?
 ##
 ## The rules check proves the fleet and the gunner are right. This one drives
-## the actual screens, because the bugs that survive a correct rule set are the
-## ones where the right answer is put in the wrong place - most of all, the
-## computer's fleet appearing face up on the player's own chart the moment it
-## takes a turn.
+## the real thing, because the bugs that survive a correct rule set are the
+## ones where the right answer is put in the wrong place - above all, the
+## enemy's fleet appearing on the plotting table.
 
 var failures := 0
-var _game: Control
+var game: Node
 
 func _ready() -> void:
-	_game = (load("res://scenes/main.tscn") as PackedScene).instantiate()
-	add_child(_game)
-	await get_tree().process_frame
+	game = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	add_child(game)
+	await get_tree().create_timer(0.4).timeout
 
-	await _computer_game()
-	await _two_player_handover()
+	await _opening()
+	await _laying_out()
+	await _battle()
+	await _two_players()
 
 	print("")
 	if failures == 0:
@@ -34,34 +35,55 @@ func _check(label: String, condition: bool, detail: String = "") -> void:
 		failures += 1
 		print("  FAIL  %s %s" % [label, detail])
 
-func _computer_game() -> void:
-	print("a game against the computer")
-	_game._begin(Game.Mode.VS_AI)
-	_game._random_placement()
-	_game._finish_placement()
+func _opening() -> void:
+	print("the first thing anybody sees")
+	_check("the menu is up", game.screens["menu"].visible)
+	_check("the bridge is already there behind it", game.bridge != null and game.bridge.flagship != null)
+	_check("the mouse is not captured on a menu", not game.bridge.capture_mouse)
+	_check("the fleet has its escorts", game.bridge.escorts.get_child_count() == 4,
+		"%d escorts" % game.bridge.escorts.get_child_count())
+
+func _laying_out() -> void:
+	print("laying out your own fleet")
+	game._begin(Game.Mode.VS_AI)
 	await get_tree().process_frame
+	_check("the placement bar is up", game.screens["placement"].visible)
+	_check("the player is at the plotting table", game.bridge.mode == 1)
+	_check("the table carries your own water", game.bridge.table.chart.board == Game.boards[Game.HUMAN])
+	_check("your own ships are shown while you lay them", game.bridge.table.chart.reveal_ships)
+	_check("you cannot put to sea with no fleet", game.ready_button.disabled)
 
-	_check("the battle screen is up", _game._screens["battle"].visible)
-	_check("your own chart shows your own fleet",
-		_game._grid_own.board == Game.boards[Game.HUMAN])
-	_check("the chart you fire at hides its ships", not _game._grid_enemy.reveal_ships)
+	# One ship by hand, to prove a click on the table places it.
+	var before: int = Game.boards[Game.HUMAN].ships.size()
+	game.bridge._place_ship(Vector2i(1, 1))
+	_check("a click lays a ship down", Game.boards[Game.HUMAN].ships.size() == before + 1)
 
-	# Hand the turn to the computer and look again. This is the moment the
-	# viewpoint used to follow the wrong player.
-	Game.end_turn()
-	_game._refresh_battle()
+	game.bridge.scatter_fleet(Game.rng)
+	game._update_place_hint()
+	_check("scattering fills the fleet", game.bridge.fleet_is_laid_out())
+	_check("now you can put to sea", not game.ready_button.disabled)
+
+func _battle() -> void:
+	print("the battle")
+	game._finish_placement()
 	await get_tree().process_frame
-	_check("the computer's turn does not reveal its fleet",
-		_game._grid_own.board == Game.boards[Game.HUMAN],
-		"left chart was %s" % ("the computer's" if _game._grid_own.board == Game.boards[Game.OPPONENT] else "yours"))
-	_check("you cannot fire while the computer is aiming", not _game._is_players_turn())
+	_check("no screen stands in front of the bridge", not game.screens["placement"].visible)
+	_check("the table has changed to the enemy's water",
+		game.bridge.table.chart.board == Game.boards[Game.OPPONENT])
+	# The one that matters: the plot must not draw the enemy's hulls.
+	_check("the enemy's ships are not drawn on the plot",
+		not game.bridge.table.chart.reveal_ships,
+		"the plot would have shown their whole fleet")
+	_check("placing is over", not game.bridge.placing)
 
-	Game.end_turn()
-	_game._refresh_battle()
-	_check("the turn comes back to you", _game._is_players_turn())
+	var first := _first_unshot(Game.boards[Game.OPPONENT])
+	game.bridge.marked = first
+	game._on_shot_requested(first)
+	await get_tree().process_frame
+	_check("a called square is fired at", Game.boards[Game.OPPONENT].already_shot(first))
 
-	# Play the match out through the rules, the way the screen would.
-	var shots := 0
+	# Play the rest out through the rules, the way the bridge would.
+	var shots := 1
 	while Game.phase != Game.Phase.OVER and shots < 400:
 		var board: Board = Game.boards[1 - Game.current_player]
 		var cell := _first_unshot(board)
@@ -73,32 +95,25 @@ func _computer_game() -> void:
 			Game.end_turn()
 	_check("a match reaches an ending", Game.phase == Game.Phase.OVER, "after %d shots" % shots)
 
-func _two_player_handover() -> void:
+func _two_players() -> void:
 	print("two players, one device")
-	_game._begin(Game.Mode.PASS_AND_PLAY)
-	_game._random_placement()
-	_game._finish_placement()
+	game._begin(Game.Mode.PASS_AND_PLAY)
 	await get_tree().process_frame
-	_check("player one is asked to pass the device before player two lays out",
-		_game._screens["handover"].visible)
+	game.bridge.scatter_fleet(Game.rng)
+	game._update_place_hint()
+	game._finish_placement()
+	await get_tree().process_frame
+	_check("player one is asked to pass the device", game.screens["handover"].visible)
+	_check("the handover hides the bridge completely",
+		game.screens["handover"].get_child(0) is ColorRect
+			and game.screens["handover"].get_child(0).color.a >= 0.99,
+		"otherwise the other player's fleet is visible behind it")
 
-	_game._leave_handover()
+	game._leave_handover()
 	await get_tree().process_frame
-	_check("player two then gets a placement screen", _game._screens["placement"].visible)
+	_check("player two then lays out", game.bridge.placing)
 	_check("player two lays out their own board",
-		_game._grid_place.board == Game.boards[Game.OPPONENT])
-
-	_game._random_placement()
-	_game._finish_placement()
-	await get_tree().process_frame
-	_check("the battle starts after both fleets are out", _game._screens["battle"].visible)
-	_check("player one sees player one's fleet", _game._grid_own.board == Game.boards[0])
-
-	# After a turn ends the device changes hands, and the view must follow.
-	Game.end_turn()
-	_game._refresh_battle()
-	_check("after the handover the view follows the device",
-		_game._grid_own.board == Game.boards[1])
+		game.bridge.table.chart.board == Game.boards[Game.OPPONENT])
 
 func _first_unshot(board: Board) -> Vector2i:
 	for y in Board.SIZE:

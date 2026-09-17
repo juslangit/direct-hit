@@ -1,0 +1,170 @@
+class_name PlotTable
+extends Node3D
+
+## The plotting table on the bridge: a lit glass plot with the enemy's water on
+## it, and the only place a target is chosen.
+##
+## The chart drawn on the glass is the same GridView the game used when it was
+## played on a flat screen - rendered into a viewport and used as the table's
+## surface, rather than drawn a second time in 3D. That keeps one piece of code
+## responsible for what a hit, a miss and a sunk ship look like, so the table
+## and any other chart can never disagree.
+##
+## Picking is done by intersecting the camera's ray with the table's own plane
+## rather than through physics. The table is one flat rectangle that never
+## moves relative to the bridge; a collision shape and a physics query would be
+## a great deal of machinery to answer a question that is four lines of maths.
+
+signal cell_picked(cell: Vector2i)
+
+const TOP := Vector2(2.6, 1.9)   ## metres, fore-aft by athwartships
+const HEIGHT := 0.95
+const TILT := 9.0                ## degrees, tipped up towards the reader
+const RESOLUTION := 700
+
+var chart: GridView
+var _viewport: SubViewport
+var _surface: MeshInstance3D
+var _plane_node: Node3D
+var hovered := Vector2i(-1, -1)
+
+func _ready() -> void:
+	_build()
+
+func _build() -> void:
+	var frame_material := StandardMaterial3D.new()
+	frame_material.albedo_color = Color(0.22, 0.24, 0.26)
+	frame_material.roughness = 0.55
+	frame_material.metallic = 0.3
+
+	var brass := StandardMaterial3D.new()
+	brass.albedo_color = Color(0.40, 0.33, 0.20)
+	brass.roughness = 0.4
+	brass.metallic = 0.7
+
+	# Legs.
+	for x in [-1.0, 1.0]:
+		for z in [-1.0, 1.0]:
+			var leg := CylinderMesh.new()
+			leg.top_radius = 0.035
+			leg.bottom_radius = 0.045
+			leg.height = HEIGHT
+			var node := MeshInstance3D.new()
+			node.mesh = leg
+			node.material_override = frame_material
+			node.position = Vector3(x * (TOP.x * 0.5 - 0.18), HEIGHT * 0.5, z * (TOP.y * 0.5 - 0.16))
+			add_child(node)
+
+	# The plot itself, tipped towards whoever is reading it.
+	_plane_node = Node3D.new()
+	_plane_node.position = Vector3(0.0, HEIGHT, 0.0)
+	_plane_node.rotation.x = -deg_to_rad(TILT)
+	add_child(_plane_node)
+
+	var casing := BoxMesh.new()
+	casing.size = Vector3(TOP.x + 0.14, 0.1, TOP.y + 0.14)
+	var casing_node := MeshInstance3D.new()
+	casing_node.mesh = casing
+	casing_node.material_override = frame_material
+	casing_node.position.y = -0.05
+	_plane_node.add_child(casing_node)
+
+	var lip := BoxMesh.new()
+	lip.size = Vector3(TOP.x + 0.16, 0.03, TOP.y + 0.16)
+	var lip_node := MeshInstance3D.new()
+	lip_node.mesh = lip
+	lip_node.material_override = brass
+	# Kept below the glass. It is a solid slab and it is wider than the plot on
+	# every side, so a millimetre too high and it does not edge the chart - it
+	# covers it completely, and the table reads as a blank brass tray.
+	lip_node.position.y = -0.010
+	_plane_node.add_child(lip_node)
+
+	# The live chart.
+	_viewport = SubViewport.new()
+	_viewport.size = Vector2i(RESOLUTION, RESOLUTION)
+	_viewport.transparent_bg = false
+	# ALWAYS, not WHEN_VISIBLE. A SubViewport only counts as visible when it
+	# sits inside a SubViewportContainer; used as a texture on a surface in the
+	# world there is nothing to make it visible, so it never draws a frame and
+	# the table comes out blank.
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(_viewport)
+
+	chart = GridView.new()
+	chart.interactive = false      ## picked in 3D, not by its own mouse events
+	# Anchored to fill the viewport rather than given a size. A Control that is
+	# handed a size and no anchors can be laid back out to nothing, and a
+	# GridView with no size draws no chart at all - which looks exactly like a
+	# viewport that never rendered.
+	chart.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_viewport.add_child(chart)
+
+	var glass := StandardMaterial3D.new()
+	glass.albedo_texture = _viewport.get_texture()
+	# The plot carries its own light, the way a backlit glass table does. It
+	# also means the chart stays readable whatever the weather is doing.
+	glass.emission_enabled = true
+	glass.emission_texture = _viewport.get_texture()
+	glass.emission_energy_multiplier = 0.85
+	glass.roughness = 0.25
+	glass.metallic = 0.0
+
+	var top := QuadMesh.new()
+	top.size = TOP
+	_surface = MeshInstance3D.new()
+	_surface.mesh = top
+	_surface.material_override = glass
+	# A QuadMesh faces +Z, so it is laid flat with its top upward.
+	_surface.rotation.x = -PI / 2.0
+	_surface.position.y = 0.014
+	_plane_node.add_child(_surface)
+
+	# A shaded lamp over the plot, because a lit table with no lamp above it
+	# reads as a television lying on its back.
+	var lamp := SpotLight3D.new()
+	lamp.position = Vector3(0.0, 1.5, 0.35)
+	lamp.rotation.x = -PI / 2.0 + deg_to_rad(12.0)
+	lamp.light_color = Color(1.0, 0.92, 0.78)
+	lamp.light_energy = 1.6
+	lamp.spot_range = 2.6
+	lamp.spot_angle = 38.0
+	add_child(lamp)
+
+func set_board(board: Board) -> void:
+	chart.set_board(board)
+
+func refresh() -> void:
+	chart.queue_redraw()
+
+## Which square a ray from the player's eye lands on, or (-1, -1) for a ray
+## that misses the plot entirely.
+func pick(from: Vector3, direction: Vector3) -> Vector2i:
+	var plane_origin := _surface.global_position
+	var normal := _surface.global_transform.basis.y.normalized()
+	var facing := normal.dot(direction)
+	if absf(facing) < 0.0001:
+		return Vector2i(-1, -1)
+	var distance := normal.dot(plane_origin - from) / facing
+	if distance <= 0.0:
+		return Vector2i(-1, -1)
+
+	var local := _surface.global_transform.affine_inverse() * (from + direction * distance)
+	# In the quad's own space x runs across the top and y up it; the quad is
+	# laid flat, so y is the fore-aft direction on the table.
+	var u := local.x / TOP.x + 0.5
+	var v := 0.5 - local.y / TOP.y
+	if u < 0.0 or u > 1.0 or v < 0.0 or v > 1.0:
+		return Vector2i(-1, -1)
+	return chart.cell_at(Vector2(u, v) * float(RESOLUTION))
+
+func hover(cell: Vector2i) -> void:
+	if cell == hovered:
+		return
+	hovered = cell
+	chart.hovered = cell
+	chart.queue_redraw()
+
+func choose(cell: Vector2i) -> void:
+	if Board.in_bounds(cell):
+		cell_picked.emit(cell)

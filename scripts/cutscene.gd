@@ -14,8 +14,6 @@ extends Node3D
 
 signal finished
 
-const OCEAN_SHADER := "res://assets/shaders/ocean.gdshader"
-
 # The beats, in seconds from the top.
 const T_SHELL := 0.75    ## the incoming round becomes visible
 const T_IMPACT := 1.05   ## it lands
@@ -46,29 +44,13 @@ func _ready() -> void:
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
-	env.environment = _make_environment()
+	env.environment = Seascape.make_environment()
 	add_child(env)
 
-	_sun = DirectionalLight3D.new()
-	_sun.rotation = Vector3(deg_to_rad(-22.0), deg_to_rad(125.0), 0.0)
-	_sun.light_energy = 1.5
-	_sun.light_color = Color(1.0, 0.94, 0.84)
-	_sun.shadow_enabled = true
-	_sun.directional_shadow_max_distance = 600.0
+	_sun = Seascape.make_sun()
 	add_child(_sun)
 
-	# Two sheets of water: a fine one around the action where the camera can
-	# see individual waves, and a coarse one out to the horizon. One shader
-	# drives both, and its own distance fade flattens the far one so the
-	# coarse mesh never has to hold a wave it cannot draw.
-	add_child(_make_ocean(2000.0, 600))
-	# Beyond the fade the waves are flat anyway, so the horizon is one big
-	# still sheet. It costs nothing and there is no seam to see, because the
-	# sheet it meets has already gone flat by the time they touch.
-	var horizon := _make_ocean(24000.0, 2)
-	var flat: ShaderMaterial = horizon.material_override
-	flat.set_shader_parameter("wave_scale", 0.0)
-	add_child(horizon)
+	Seascape.build_water(self)
 
 	_ship_pivot = Node3D.new()
 	add_child(_ship_pivot)
@@ -88,90 +70,27 @@ func _build_world() -> void:
 	_flash = OmniLight3D.new()
 	_flash.light_energy = 0.0
 	_flash.light_color = Color(1.0, 0.75, 0.42)
-	_flash.omni_range = 260.0
+	_flash.omni_range = 650.0
 	_ship_pivot.add_child(_flash)
 
 	_shell = _make_shell()
 	add_child(_shell)
 
-	_fire = _make_fire()
+	_fire = Effects.make_fire()
 	_ship_pivot.add_child(_fire)
-	_smoke = _make_smoke()
-	_spray = _make_spray()
-	_debris = _make_debris()
-	_steam = _make_steam()
+	_smoke = Effects.make_smoke()
+	_spray = Effects.make_spray()
+	_debris = Effects.make_debris()
+	_steam = Effects.make_steam()
 	for p in [_smoke, _spray, _debris, _steam]:
 		add_child(p)
-
-func _make_environment() -> Environment:
-	var sky_material := ShaderMaterial.new()
-	sky_material.shader = load("res://assets/shaders/sky.gdshader")
-
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.0
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_white = 4.0
-	env.ssao_enabled = false
-	env.glow_enabled = true
-	env.glow_intensity = 0.32
-	env.glow_bloom = 0.12
-	env.glow_hdr_threshold = 1.1
-	# Haze over the sea. It sells the distance and, usefully, hides the far
-	# edge of the water long before the player can reach it.
-	env.fog_enabled = true
-	env.fog_mode = Environment.FOG_MODE_DEPTH
-	env.fog_light_color = Color(0.60, 0.67, 0.74)
-	env.fog_light_energy = 1.0
-	env.fog_density = 0.0011
-	env.fog_sky_affect = 0.3
-	return env
-
-func _make_ocean(size: float, subdivisions: int) -> MeshInstance3D:
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(size, size)
-	plane.subdivide_width = subdivisions
-	plane.subdivide_depth = subdivisions
-
-	var material := ShaderMaterial.new()
-	material.shader = load(OCEAN_SHADER)
-	material.set_shader_parameter("wave_scale", 1.0)
-	material.set_shader_parameter("wave_speed", 0.8)
-	material.set_shader_parameter("detail_normal", _ripple_texture())
-
-	var water := MeshInstance3D.new()
-	water.mesh = plane
-	water.material_override = material
-	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	water.extra_cull_margin = size
-	return water
-
-## Fine noise, read as a normal map, for the ripple between the waves.
-func _ripple_texture() -> NoiseTexture2D:
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.frequency = 0.014
-	noise.fractal_octaves = 3
-	var tex := NoiseTexture2D.new()
-	tex.noise = noise
-	tex.width = 512
-	tex.height = 512
-	tex.seamless = true
-	tex.as_normal_map = true
-	tex.bump_strength = 3.0
-	return tex
 
 func _make_shell() -> Node3D:
 	var holder := Node3D.new()
 	var body := MeshInstance3D.new()
 	var mesh := CapsuleMesh.new()
-	mesh.radius = 0.55
-	mesh.height = 7.0
+	mesh.radius = 1.4
+	mesh.height = 18.0
 	body.mesh = mesh
 	body.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0))
 
@@ -189,203 +108,9 @@ func _make_shell() -> Node3D:
 
 # ------------------------------------------------------------- the explosion
 
-func _particle_material(
-		direction: Vector3, spread: float, speed: Vector2,
-		gravity: float, scale_range: Vector2) -> ParticleProcessMaterial:
-	var m := ParticleProcessMaterial.new()
-	m.direction = direction
-	m.spread = spread
-	m.initial_velocity_min = speed.x
-	m.initial_velocity_max = speed.y
-	m.gravity = Vector3(0.0, gravity, 0.0)
-	m.scale_min = scale_range.x
-	m.scale_max = scale_range.y
-	m.damping_min = 1.0
-	m.damping_max = 4.0
-	return m
-
-func _billboard(color: Color, emissive: bool, size: float) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if emissive else BaseMaterial3D.BLEND_MODE_MIX
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if emissive else BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	m.billboard_keep_scale = true
-	m.albedo_color = color
-	m.albedo_texture = _puff(0.35 if emissive else 0.2)
-	m.vertex_color_use_as_albedo = true
-	m.disable_receive_shadows = emissive
-	return m
-
-func _quad(size: float) -> QuadMesh:
-	var q := QuadMesh.new()
-	q.size = Vector2(size, size)
-	return q
-
-func _make_fire() -> GPUParticles3D:
-	# The fireball: brief, bright, thrown up and outward from the hole.
-	var p := GPUParticles3D.new()
-	p.emitting = false
-	p.one_shot = true
-	p.amount = 120
-	p.lifetime = 0.9
-	p.explosiveness = 0.85
-	p.process_material = _particle_material(Vector3(0, 1, 0), 72.0, Vector2(9.0, 26.0), -6.0, Vector2(0.8, 2.4))
-	var m: ParticleProcessMaterial = p.process_material
-	m.scale_curve = _rising_curve()
-	m.color_ramp = _gradient([
-		[0.0, Color(1.0, 0.95, 0.72, 1.0)],
-		[0.18, Color(1.0, 0.65, 0.18, 1.0)],
-		[0.55, Color(0.75, 0.22, 0.05, 0.75)],
-		[1.0, Color(0.12, 0.08, 0.07, 0.0)],
-	])
-	p.draw_pass_1 = _quad(3.4)
-	p.material_override = _billboard(Color(1, 1, 1), true, 3.4)
-	return p
-
-func _make_smoke() -> GPUParticles3D:
-	# The column that stays behind: slow, dark, and still climbing when the
-	# camera leaves. This is what makes a hit feel like it did damage.
-	var p := GPUParticles3D.new()
-	p.emitting = false
-	p.amount = 220
-	p.lifetime = 6.5
-	p.explosiveness = 0.1
-	p.process_material = _particle_material(Vector3(0.25, 1, 0), 34.0, Vector2(5.0, 15.0), 1.6, Vector2(1.1, 3.0))
-	var m: ParticleProcessMaterial = p.process_material
-	m.scale_curve = _rising_curve()
-	m.turbulence_enabled = true
-	m.turbulence_noise_strength = 0.35
-	m.turbulence_noise_scale = 1.4
-	m.color_ramp = _gradient([
-		[0.0, Color(0.20, 0.17, 0.16, 0.0)],
-		[0.12, Color(0.16, 0.14, 0.13, 0.92)],
-		[0.6, Color(0.31, 0.29, 0.28, 0.6)],
-		[1.0, Color(0.46, 0.45, 0.44, 0.0)],
-	])
-	p.draw_pass_1 = _quad(6.0)
-	p.material_override = _billboard(Color(1, 1, 1), false, 6.0)
-	return p
-
-func _make_spray() -> GPUParticles3D:
-	# Sea thrown up the ship's side. Sharper and whiter than smoke, and it
-	# falls back down instead of climbing.
-	var p := GPUParticles3D.new()
-	p.emitting = false
-	p.one_shot = true
-	p.amount = 110
-	p.lifetime = 2.4
-	p.explosiveness = 0.9
-	p.process_material = _particle_material(Vector3(0, 1, 0), 55.0, Vector2(18.0, 46.0), -22.0, Vector2(1.0, 2.6))
-	var m: ParticleProcessMaterial = p.process_material
-	m.scale_curve = _rising_curve()
-	m.color_ramp = _gradient([
-		[0.0, Color(0.95, 0.98, 1.0, 0.95)],
-		[0.5, Color(0.85, 0.91, 0.95, 0.7)],
-		[1.0, Color(0.8, 0.88, 0.92, 0.0)],
-	])
-	p.draw_pass_1 = _quad(3.2)
-	p.material_override = _billboard(Color(1, 1, 1), false, 3.2)
-	return p
-
-func _make_debris() -> GPUParticles3D:
-	# Small hard pieces of the ship. They are barely visible individually,
-	# but without them an explosion looks like a gas leak rather than metal
-	# being torn open.
-	var p := GPUParticles3D.new()
-	p.emitting = false
-	p.one_shot = true
-	p.amount = 34
-	p.lifetime = 2.4
-	p.explosiveness = 1.0
-	p.process_material = _particle_material(Vector3(0, 1, 0), 85.0, Vector2(26.0, 66.0), -30.0, Vector2(0.25, 0.8))
-	var m: ParticleProcessMaterial = p.process_material
-	m.angular_velocity_min = -520.0
-	m.angular_velocity_max = 520.0
-	m.color_ramp = _gradient([
-		[0.0, Color(0.35, 0.3, 0.28, 1.0)],
-		[0.8, Color(0.25, 0.22, 0.2, 1.0)],
-		[1.0, Color(0.2, 0.18, 0.17, 0.0)],
-	])
-	var box := BoxMesh.new()
-	box.size = Vector3(0.5, 0.28, 0.34)
-	var steel := StandardMaterial3D.new()
-	steel.albedo_color = Color(0.30, 0.28, 0.26)
-	steel.roughness = 0.45
-	steel.metallic = 0.7
-	box.material = steel
-	p.draw_pass_1 = box
-	return p
-
-func _make_steam() -> GPUParticles3D:
-	# Only for a sinking: white steam where hot steel meets the sea as she
-	# goes under.
-	var p := GPUParticles3D.new()
-	p.emitting = false
-	p.amount = 70
-	p.lifetime = 4.0
-	p.process_material = _particle_material(Vector3(0, 1, 0), 60.0, Vector2(4.0, 13.0), 1.2, Vector2(1.3, 3.2))
-	var m: ParticleProcessMaterial = p.process_material
-	m.scale_curve = _rising_curve()
-	m.color_ramp = _gradient([
-		[0.0, Color(0.95, 0.96, 0.97, 0.0)],
-		[0.2, Color(0.9, 0.92, 0.94, 0.8)],
-		[1.0, Color(0.85, 0.88, 0.9, 0.0)],
-	])
-	p.draw_pass_1 = _quad(6.0)
-	p.material_override = _billboard(Color(1, 1, 1), false, 6.0)
-	return p
-
-func _rising_curve() -> CurveTexture:
-	var curve := Curve.new()
-	curve.add_point(Vector2(0.0, 0.25))
-	curve.add_point(Vector2(0.35, 1.0))
-	curve.add_point(Vector2(1.0, 0.75))
-	var tex := CurveTexture.new()
-	tex.curve = curve
-	return tex
-
-func _gradient(points: Array) -> GradientTexture1D:
-	# A Gradient refuses to hold fewer than two points, so emptying it before
-	# filling it silently leaves the default black-to-white ramp in place and
-	# every particle comes out the wrong colour. Hand it both arrays instead.
-	var offsets := PackedFloat32Array()
-	var colors := PackedColorArray()
-	for point in points:
-		offsets.append(float(point[0]))
-		colors.append(point[1])
-	var g := Gradient.new()
-	g.offsets = offsets
-	g.colors = colors
-	var tex := GradientTexture1D.new()
-	tex.gradient = g
-	return tex
-
-## A soft round puff to draw each particle with.
-##
-## A billboarded quad with no texture is a hard-edged square, and a hundred
-## hard-edged squares look like paper, not smoke. This is the alpha falloff
-## that turns each one back into a cloud.
-func _puff(hardness: float = 0.0) -> GradientTexture2D:
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, hardness, 1.0])
-	g.colors = PackedColorArray([
-		Color(1, 1, 1, 1),
-		Color(1, 1, 1, 0.75),
-		Color(1, 1, 1, 0),
-	])
-	var tex := GradientTexture2D.new()
-	tex.gradient = g
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 128
-	tex.height = 128
-	return tex
-
 # ----------------------------------------------------------- the performance
 
-const SAIL_SPEED := 7.0   ## metres per second, so the sea moves past her
+const SAIL_SPEED := 7.0   ## metres per second - about fourteen knots
 
 var _sunk := false
 var _hull_box := AABB()
@@ -579,7 +304,9 @@ func _process(delta: float) -> void:
 		return
 	_sailing += delta
 	if _playing or _showcase:
-		_ship_pivot.position.x += SAIL_SPEED * delta
+		# Bow first. Ships are built with the bow at x = 0 and the hull running
+		# aft up +X, so making way means going the other direction.
+		_ship_pivot.position.x -= SAIL_SPEED * delta
 
 	if _showcase:
 		_drift(delta)

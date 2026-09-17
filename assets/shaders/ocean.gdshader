@@ -1,5 +1,10 @@
 shader_type spatial;
-render_mode specular_schlick_ggx, cull_back;
+render_mode specular_schlick_ggx, cull_back, shadows_disabled;
+
+// The sea does not take shadows. A ship's shadow across open water is a faint
+// thing in life, and on a mesh this large and this flat the shadow map cannot
+// hold it: it broke into dark blotches that read as oil slicks, and they were
+// invisible from the cutscene's distance but obvious from the ship's own deck.
 
 // Open ocean.
 //
@@ -13,22 +18,22 @@ render_mode specular_schlick_ggx, cull_back;
 // the lighting always agrees with the shape - important here, because the
 // camera drops close to the surface during a hit and any disagreement shows.
 
-uniform vec3 deep_color : source_color = vec3(0.012, 0.055, 0.09);
-uniform vec3 shallow_color : source_color = vec3(0.06, 0.22, 0.28);
+uniform vec3 deep_color : source_color = vec3(0.035, 0.095, 0.135);
+uniform vec3 shallow_color : source_color = vec3(0.085, 0.235, 0.29);
 uniform vec3 foam_color : source_color = vec3(0.85, 0.92, 0.95);
 uniform float wave_scale = 1.0;
 uniform float wave_speed = 1.0;
 uniform float roughness_value = 0.06;
 uniform float foam_amount = 0.6;
-uniform float fade_start = 600.0;
-uniform float fade_end = 1150.0;
+uniform float fade_start = 1600.0;
+uniform float fade_end = 3000.0;
 uniform sampler2D detail_normal : hint_normal;
-uniform float detail_strength = 0.35;
-uniform float detail_scale = 0.06;
+uniform float detail_strength = 0.13;
+uniform float detail_scale = 0.022;
 
 // direction.xy, amplitude, wavelength.
 //
-// One unit here is about three metres - a destroyer is 52 units long. Open
+// One unit is one metre. Open
 // ocean swell runs roughly sixty times longer than it is tall, so these keep
 // that ratio; the earlier set was three times too steep and the sea read as a
 // gale in every shot.
@@ -112,10 +117,16 @@ void fragment() {
 	// Ripple far too small to model in the mesh, added to the normal only.
 	// Without it the swell is a sheet of moulded glass; real water is never
 	// smooth between the waves.
+	//
+	// It has to be faded out hard with distance. Six-metre ripple seen from a
+	// kilometre away is a fraction of a pixel, and what comes back is not
+	// ripple but moire - broad warm and dark patches drifting over the sea
+	// where the minified normal happens to catch the sun. Beyond half a
+	// kilometre the water is left smooth and the swell carries it.
 	vec2 drift = vec2(TIME * 0.012, TIME * -0.008);
 	vec3 ripple = texture(detail_normal, world_pos.xz * detail_scale + drift).xyz * 2.0 - 1.0;
 	vec3 ripple2 = texture(detail_normal, world_pos.xz * detail_scale * 2.7 - drift * 1.6).xyz * 2.0 - 1.0;
-	float close = 1.0 - smoothstep(60.0, 520.0, length(world_pos - CAMERA_POSITION_WORLD));
+	float close = 1.0 - smoothstep(40.0, 380.0, length(world_pos - CAMERA_POSITION_WORLD));
 	NORMAL = normalize(NORMAL + vec3(ripple.x + ripple2.x * 0.5, 0.0, ripple.y + ripple2.y * 0.5)
 		* detail_strength * close);
 
@@ -126,12 +137,19 @@ void fragment() {
 	// own colour. That is the whole reason a calm sea is bright at the
 	// horizon and dark underfoot.
 	float fresnel = pow(1.0 - facing, 4.0);
-	vec3 body = mix(deep_color, shallow_color, smoothstep(-0.4, 0.9, crest));
+	// Only the deepest troughs go dark. Reaching the deep colour as early as
+	// crest -0.4 turned every trough near-black, and from a bridge twenty-four
+	// metres up - where you are looking down at troughs rather than across at
+	// crests - the sea came out as drifting black blotches.
+	vec3 body = mix(deep_color, shallow_color, smoothstep(-0.95, 0.85, crest));
 
 	// Whitecaps only where the water is genuinely breaking, and broken up by
 	// the ripple noise so they scatter instead of lying in smooth bands.
+	// The whitecap speckle samples the same noise, so it aliases the same way;
+	// far off, the foam is left to the crest alone.
 	float speckle = texture(detail_normal, world_pos.xz * detail_scale * 1.3).z;
-	float foam = smoothstep(0.72, 0.99, crest) * foam_amount * smoothstep(0.35, 0.8, speckle);
+	float scatter = mix(1.0, smoothstep(0.35, 0.8, speckle), close);
+	float foam = smoothstep(0.72, 0.99, crest) * foam_amount * scatter;
 
 	ALBEDO = mix(body, foam_color, foam);
 	ROUGHNESS = mix(roughness_value, 0.55, foam);

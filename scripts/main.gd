@@ -1,106 +1,89 @@
-extends Control
+extends Node
 
-## The game as the player meets it: a menu, a chart to lay your fleet out on,
-## two charts to fight over, and the cutscene dropped on top whenever a shell
-## finds something.
+## The stage manager.
 ##
-## The rules live in Game (match_state.gd) and the staging lives in the
-## cutscene. This file is the stage manager - it decides which screen is up and
-## what happens after a shot has finished being shown, and nothing else.
+## The game is the bridge: a 3D world that exists from the moment the program
+## starts, and which the title screen is simply drawn over. This file decides
+## which screen is up and what happens after a shot has been shown, and nothing
+## else. The rules live in Game, the staging lives on the bridge, and the close
+## view of a ship taking a shell lives in the cutscene.
 
 const PLAYER_NAMES := ["Player 1", "Player 2"]
 
-var _screens: Dictionary = {}
-var _grid_place: GridView
-var _grid_own: GridView
-var _grid_enemy: GridView
-var _fleet_own: FleetPanel
-var _fleet_enemy: FleetPanel
-var _message: Label
-var _turn_label: Label
-var _place_title: Label
-var _place_hint: Label
-var _ready_button: Button
-var _handover_title: Label
-var _handover_note: Label
-var _over_title: Label
-var _over_detail: Label
-var _scrim: ColorRect
-var _skip_hint: Label
-var _title_sea_running := false
+var bridge: Node3D
+var ui: CanvasLayer
+var screens: Dictionary = {}
+var banner: Label
+var turn_line: Label
+var over_title: Label
+var over_detail: Label
+var handover_note: Label
+var place_hint: Label
+var ready_button: Button
 
-var _cutscene_layer: Control
-var _cutscene_viewport: SubViewport
-var _cutscene: Node3D
-var _banner: Label
-var _banner_sub: Label
+var cutscene_layer: CanvasLayer
+var cutscene_viewport: SubViewport
+var cutscene: Node3D
+var cut_banner: Label
+var cut_sub: Label
 
-# Placement, which happens once against the computer and twice for two players.
-var _placing_player := Board.SIZE  # set properly when placement starts
-var _placing_index := 0
-var _placing_horizontal := true
-var _placement_boards: Array[Board] = []
+var _handover_next: Callable = Callable()
+var _placing_player := 0
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	var backdrop := ColorRect.new()
-	backdrop.color = Palette.PAPER
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
+	bridge = (load("res://scenes/bridge.tscn") as PackedScene).instantiate()
+	add_child(bridge)
+	bridge.shot_requested.connect(_on_shot_requested)
+	bridge.shot_landed.connect(_on_shot_landed)
 
-	_build_cutscene_layer()
+	ui = CanvasLayer.new()
+	ui.layer = 2
+	add_child(ui)
 	_build_menu()
-	_build_placement()
-	_build_battle()
+	_build_placement_bar()
 	_build_handover()
 	_build_over()
+	_build_cutscene_layer()
 
 	Game.match_over.connect(_on_match_over)
 	_show("menu")
 
 func _show(which: String) -> void:
-	for name in _screens:
-		_screens[name].visible = name == which
-	_set_title_sea(which == "menu")
+	for name in screens:
+		screens[name].visible = name == which
+	# The bridge only takes the mouse while the game is actually being played.
+	# A captured pointer over a menu is a trap.
+	bridge.capture_mouse = which == ""
+	# The bridge's own instruments belong to the bridge. With a menu up they
+	# are telling the player about keys that do nothing yet.
+	bridge.hud.visible = which == ""
+	if which != "":
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-## The sea runs behind the title screen and nowhere else. It is a third of a
-## million vertices; leaving it turning behind the charts would cost a great
-## deal to show nobody anything.
-func _set_title_sea(on: bool) -> void:
-	if on == _title_sea_running:
-		return
-	_title_sea_running = on
-	_cutscene_layer.visible = on
-	_scrim.visible = on
-	_banner.visible = not on
-	_banner_sub.visible = not on
-	_skip_hint.visible = not on
-	if on:
-		_cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		_cutscene.process_mode = Node.PROCESS_MODE_INHERIT
-		_cutscene.showcase(Board.FLEET[Game.rng.randi_range(0, Board.FLEET.size() - 1)])
-	else:
-		_cutscene.stop_showcase()
-		_cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		_cutscene.process_mode = Node.PROCESS_MODE_DISABLED
-
-func _new_screen(name: String) -> VBoxContainer:
+func _new_screen(name: String, centred := true) -> VBoxContainer:
 	var holder := VBoxContainer.new()
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
-	holder.alignment = BoxContainer.ALIGNMENT_CENTER
+	holder.alignment = BoxContainer.ALIGNMENT_CENTER if centred else BoxContainer.ALIGNMENT_END
 	holder.add_theme_constant_override("separation", 18)
-	add_child(holder)
-	_screens[name] = holder
+	ui.add_child(holder)
+	screens[name] = holder
 	holder.visible = false
 	return holder
 
-# ------------------------------------------------------------------- menu
+# -------------------------------------------------------------------- menu
 
 func _build_menu() -> void:
 	var screen := _new_screen("menu")
+	var scrim := ColorRect.new()
+	scrim.color = Color(Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, 0.52)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(scrim)
+	screen.move_child(scrim, 0)
+
 	var title := UiKit.heading("DIRECT HIT", 96, Palette.INK)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var tagline := UiKit.body("Every hit is a real ship taking a real shell.", 26)
+	var tagline := UiKit.body("You have the bridge. Every hit is a real ship taking a real shell.", 26)
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	var row := HBoxContainer.new()
@@ -120,246 +103,92 @@ func _build_menu() -> void:
 
 func _begin(mode: Game.Mode) -> void:
 	Game.start_match(mode)
-	_placement_boards = Game.boards
 	_start_placement(Game.HUMAN)
 
-# -------------------------------------------------------------- placement
+# --------------------------------------------------------------- placement
 
-func _build_placement() -> void:
-	var screen := _new_screen("placement")
-	_place_title = UiKit.heading("POSITION YOUR FLEET", 44)
-	_place_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_place_hint = UiKit.body("Click to lay a ship down. R turns her.", 22)
-	_place_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+func _build_placement_bar() -> void:
+	var screen := _new_screen("placement", false)
+	place_hint = UiKit.body("", 24, Palette.INK)
+	place_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	var middle := HBoxContainer.new()
-	middle.alignment = BoxContainer.ALIGNMENT_CENTER
-	middle.add_theme_constant_override("separation", 40)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 18)
+	var turn := UiKit.button("TURN HER  (R)")
+	turn.pressed.connect(func(): bridge.turn_ship(); _update_place_hint())
+	var scatter := UiKit.button("SCATTER THEM")
+	scatter.pressed.connect(func(): bridge.scatter_fleet(Game.rng); _update_place_hint())
+	ready_button = UiKit.button("PUT TO SEA")
+	ready_button.pressed.connect(_finish_placement)
+	row.add_child(turn)
+	row.add_child(scatter)
+	row.add_child(ready_button)
 
-	_grid_place = GridView.new()
-	_grid_place.reveal_ships = true
-	_grid_place.custom_minimum_size = Vector2(620, 620)
-	_grid_place.cell_pressed.connect(_on_place_pressed)
-	_grid_place.cell_hovered.connect(_on_place_hovered)
-
-	var side := VBoxContainer.new()
-	side.add_theme_constant_override("separation", 12)
-	side.custom_minimum_size = Vector2(300, 0)
-	_fleet_own = FleetPanel.new()
-	var rotate := UiKit.button("TURN  (R)")
-	rotate.pressed.connect(_rotate_placement)
-	var shuffle := UiKit.button("SCATTER THEM")
-	shuffle.pressed.connect(_random_placement)
-	var clear := UiKit.button("START OVER")
-	clear.pressed.connect(func(): _start_placement(_placing_player))
-	_ready_button = UiKit.button("PUT TO SEA")
-	_ready_button.disabled = true
-	_ready_button.pressed.connect(_finish_placement)
-
-	side.add_child(UiKit.heading("FLEET", 26, Palette.BRASS))
-	side.add_child(_fleet_own)
-	side.add_child(UiKit.spacer(10))
-	side.add_child(rotate)
-	side.add_child(shuffle)
-	side.add_child(clear)
-	side.add_child(UiKit.spacer(10))
-	side.add_child(_ready_button)
-
-	middle.add_child(_grid_place)
-	middle.add_child(side)
-
-	screen.add_child(_place_title)
-	screen.add_child(_place_hint)
-	screen.add_child(middle)
+	screen.add_child(place_hint)
+	screen.add_child(row)
+	screen.add_child(UiKit.spacer(40))
 
 func _start_placement(player: int) -> void:
 	_placing_player = player
-	_placing_index = 0
-	_placing_horizontal = true
 	Game.boards[player] = Board.new()
-	_grid_place.set_board(Game.boards[player])
-	_fleet_own.board = Game.boards[player]
-	_fleet_own.hide_intact = false
-	_fleet_own.queue_redraw()
-	_grid_place.preview_cells = []
-	_ready_button.disabled = true
-	_place_title.text = "POSITION YOUR FLEET"
-	if Game.mode == Game.Mode.PASS_AND_PLAY:
-		_place_title.text = "%s - POSITION YOUR FLEET" % PLAYER_NAMES[player]
-	_update_placement_hint()
+	bridge.begin_placement(Game.boards[player])
+	_update_place_hint()
 	_show("placement")
 
-func _placing_kind() -> Ship.Kind:
-	return Board.FLEET[_placing_index]
-
-func _update_placement_hint() -> void:
-	if _placing_index >= Board.FLEET.size():
-		_place_hint.text = "The fleet is at sea. Put to sea when you are ready."
+func _update_place_hint() -> void:
+	if bridge.fleet_is_laid_out():
+		place_hint.text = "The fleet is at sea."
+		ready_button.disabled = false
 		return
-	var kind := _placing_kind()
-	_place_hint.text = "Laying the %s - %d squares. R turns her." % [
-		Ship.SPECS[kind]["name"], Ship.SPECS[kind]["length"]
-	]
-
-func _rotate_placement() -> void:
-	_placing_horizontal = not _placing_horizontal
-	_on_place_hovered(_grid_place.hovered)
-
-func _random_placement() -> void:
-	var board: Board = Game.boards[_placing_player]
-	board.ships.clear()
-	board.random_layout(Game.rng)
-	_placing_index = Board.FLEET.size()
-	_grid_place.preview_cells = []
-	_grid_place.queue_redraw()
-	_fleet_own.queue_redraw()
-	_ready_button.disabled = false
-	_update_placement_hint()
-
-func _on_place_hovered(cell: Vector2i) -> void:
-	if _placing_index >= Board.FLEET.size() or not Board.in_bounds(cell):
-		_grid_place.preview_cells = []
-		_grid_place.queue_redraw()
-		return
-	var kind := _placing_kind()
-	var probe := Ship.new(kind, cell, _placing_horizontal)
-	_grid_place.preview_cells = probe.cells()
-	_grid_place.preview_legal = Game.boards[_placing_player].can_place(kind, cell, _placing_horizontal)
-	_grid_place.queue_redraw()
-
-func _on_place_pressed(cell: Vector2i) -> void:
-	if _placing_index >= Board.FLEET.size():
-		return
-	var board: Board = Game.boards[_placing_player]
-	if not board.place(_placing_kind(), cell, _placing_horizontal):
-		return
-	_placing_index += 1
-	_grid_place.preview_cells = []
-	_grid_place.queue_redraw()
-	_fleet_own.queue_redraw()
-	_ready_button.disabled = _placing_index < Board.FLEET.size()
-	_update_placement_hint()
-	_on_place_hovered(cell)
+	ready_button.disabled = true
+	var kind: Ship.Kind = bridge.placing_kind()
+	var who := "" if Game.mode == Game.Mode.VS_AI else "%s - " % PLAYER_NAMES[_placing_player]
+	place_hint.text = "%sLay the %s on the plot - %d squares. R turns her." % [
+		who, Ship.SPECS[kind]["name"], Ship.SPECS[kind]["length"]]
 
 func _finish_placement() -> void:
+	if not bridge.fleet_is_laid_out():
+		return
 	if Game.mode == Game.Mode.PASS_AND_PLAY and _placing_player == Game.HUMAN:
 		_go_to_handover("PASS THE DEVICE", "%s lays her fleet out next." % PLAYER_NAMES[Game.OPPONENT],
 			func(): _start_placement(Game.OPPONENT))
 		return
 	_open_battle()
 
-# ----------------------------------------------------------------- battle
-
-func _build_battle() -> void:
-	var screen := _new_screen("battle")
-
-	_turn_label = UiKit.heading("YOUR TURN", 38, Palette.BRASS)
-	_turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-	var charts := HBoxContainer.new()
-	charts.alignment = BoxContainer.ALIGNMENT_CENTER
-	charts.add_theme_constant_override("separation", 56)
-
-	charts.add_child(_build_chart_column("YOUR WATERS", true))
-	charts.add_child(_build_chart_column("ENEMY WATERS", false))
-
-	_message = UiKit.body("Call a square.", 26, Palette.INK)
-	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-	screen.add_child(_turn_label)
-	screen.add_child(charts)
-	screen.add_child(_message)
-
-func _build_chart_column(title: String, is_own: bool) -> VBoxContainer:
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
-	var heading := UiKit.heading(title, 26, Palette.BRASS if not is_own else Palette.INK_DIM)
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-	var grid := GridView.new()
-	grid.custom_minimum_size = Vector2(560, 560)
-	grid.reveal_ships = is_own
-	grid.interactive = not is_own
-	var fleet := FleetPanel.new()
-	fleet.hide_intact = not is_own
-
-	if is_own:
-		_grid_own = grid
-		_fleet_own = fleet
-	else:
-		_grid_enemy = grid
-		_fleet_enemy = fleet
-		grid.cell_pressed.connect(_on_fire_pressed)
-
-	column.add_child(heading)
-	column.add_child(grid)
-	column.add_child(fleet)
-	return column
+# ------------------------------------------------------------------ battle
 
 func _open_battle() -> void:
 	Game.phase = Game.Phase.PLAYING
-	_refresh_battle()
-	_show("battle")
-	_message.text = "Call a square."
+	bridge.finish_placement(Game.boards[1 - Game.current_player])
+	bridge.set_mode(0)
+	_show("")
+	_say("Find them. T for the plotting table.")
 
-## Whose charts are on screen.
-##
-## In a two-player game the device changes hands, so the view follows whoever
-## is holding it. Against the computer it must not: the view stays with the
-## player even while the computer is aiming. Following current_player in both
-## modes put the computer's own fleet on the left-hand chart, face up, every
-## time it took a turn.
-func _viewpoint() -> int:
-	return Game.current_player if Game.mode == Game.Mode.PASS_AND_PLAY else Game.HUMAN
+func _say(text: String) -> void:
+	bridge.hud.message = text
+	bridge.hud.queue_redraw()
 
-func _refresh_battle() -> void:
-	var me := _viewpoint()
-	_grid_own.set_board(Game.boards[me])
-	_grid_enemy.set_board(Game.boards[1 - me])
-	_fleet_own.set_board(Game.boards[me])
-	_fleet_enemy.set_board(Game.boards[1 - me])
-	_fleet_own.hide_intact = false
-	_fleet_enemy.hide_intact = true
-	if Game.mode == Game.Mode.VS_AI:
-		_turn_label.text = "YOUR TURN" if Game.current_player == Game.HUMAN else "THE ENEMY IS AIMING"
-	else:
-		_turn_label.text = "%s - YOUR TURN" % PLAYER_NAMES[me]
-	_grid_enemy.interactive = _is_players_turn()
-
-func _is_players_turn() -> bool:
+func _on_shot_requested(cell: Vector2i) -> void:
 	if Game.phase != Game.Phase.PLAYING:
-		return false
-	return Game.mode == Game.Mode.PASS_AND_PLAY or Game.current_player == Game.HUMAN
-
-func _on_fire_pressed(cell: Vector2i) -> void:
-	if not _is_players_turn():
 		return
 	var result := Game.fire_at(cell)
 	if not result.get("valid", false):
-		_message.text = "You have already shot there."
+		_say("You have already shot there.")
 		return
-	_resolve(result)
+	_say("")
+	bridge.play_shot(result)
 
-func _resolve(result: Dictionary) -> void:
-	if Game.current_player == _viewpoint():
-		_grid_enemy.last_shot = result["cell"]
-	else:
-		_grid_own.last_shot = result["cell"]
-	_grid_enemy.interactive = false
-	_grid_own.queue_redraw()
-	_grid_enemy.queue_redraw()
-	_fleet_own.queue_redraw()
-	_fleet_enemy.queue_redraw()
-
+func _on_shot_landed(result: Dictionary) -> void:
 	if result["outcome"] == "miss":
-		Sound.play("splash", -6.0, 0.55)
-		_message.text = "Nothing there. Just water."
-		await get_tree().create_timer(0.85).timeout
+		_say("Nothing there. Just water.")
+		await get_tree().create_timer(1.0).timeout
 		_after_shot()
 		return
-
-	_message.text = "%s hit." % result["ship_name"]
 	await _play_cutscene(result)
+	bridge.reveal(result)
+	bridge.refresh_plot()
+	_say("%s hit." % result["ship_name"])
 	_after_shot()
 
 func _after_shot() -> void:
@@ -367,132 +196,110 @@ func _after_shot() -> void:
 		return
 	Game.end_turn()
 	if Game.mode == Game.Mode.PASS_AND_PLAY:
-		var next: int = Game.current_player
-		_go_to_handover("PASS THE DEVICE", "%s takes the next shot." % PLAYER_NAMES[next],
+		_go_to_handover("PASS THE DEVICE",
+			"%s takes the next shot." % PLAYER_NAMES[Game.current_player],
 			func(): _open_battle())
 		return
-	_refresh_battle()
 	if Game.current_player == Game.OPPONENT:
-		_message.text = "The enemy is aiming..."
-		await get_tree().create_timer(0.9).timeout
+		_say("They have our range.")
+		await get_tree().create_timer(1.2).timeout
 		var result := Game.take_ai_turn()
 		if result.get("valid", false):
-			_resolve(result)
+			var kind: int = result.get("ship_kind", -1) if result["outcome"] != "miss" else -1
+			bridge.take_incoming(result, kind)
+			await bridge.incoming_shown
+			_say("%s hit." % result["ship_name"] if result["outcome"] != "miss" else "Short. They missed.")
+		_after_shot()
 	else:
-		_message.text = "Call a square."
+		bridge.can_fire = false
+		_say("Your shot.")
 
-# -------------------------------------------------------------- cutscene
+# ---------------------------------------------------------------- cutscene
 
 func _build_cutscene_layer() -> void:
-	_cutscene_layer = Control.new()
-	_cutscene_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_cutscene_layer.visible = false
-	_cutscene_layer.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_cutscene_layer)
+	cutscene_layer = CanvasLayer.new()
+	cutscene_layer.layer = 3
+	cutscene_layer.visible = false
+	add_child(cutscene_layer)
 
 	var container := SubViewportContainer.new()
 	container.stretch = true
 	container.set_anchors_preset(Control.PRESET_FULL_RECT)
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cutscene_layer.add_child(container)
+	cutscene_layer.add_child(container)
 
-	_cutscene_viewport = SubViewport.new()
-	_cutscene_viewport.size = Vector2i(1920, 1080)
-	_cutscene_viewport.handle_input_locally = false
-	# The ocean is a third of a million vertices. It renders only while it is
-	# being watched; left running it would drag the board screen down for no
-	# reason at all.
-	_cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	container.add_child(_cutscene_viewport)
+	cutscene_viewport = SubViewport.new()
+	cutscene_viewport.size = Vector2i(1920, 1080)
+	cutscene_viewport.handle_input_locally = false
+	cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	container.add_child(cutscene_viewport)
 
-	_cutscene = (load("res://scenes/cutscene.tscn") as PackedScene).instantiate()
-	_cutscene_viewport.add_child(_cutscene)
-	_cutscene.process_mode = Node.PROCESS_MODE_DISABLED
-
-	# Behind the title, the sea is a backdrop and the words have to stay
-	# readable over it.
-	_scrim = ColorRect.new()
-	_scrim.color = Color(Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, 0.40)
-	_scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_cutscene_layer.add_child(_scrim)
+	cutscene = (load("res://scenes/cutscene.tscn") as PackedScene).instantiate()
+	cutscene_viewport.add_child(cutscene)
+	cutscene.process_mode = Node.PROCESS_MODE_DISABLED
 
 	var caption := VBoxContainer.new()
-	# TOP_WIDE, not CENTER_TOP: the centre preset anchors the box to a point
-	# and then lets it grow to the right, which pushed the banner off to one
-	# side of the screen.
 	caption.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	caption.offset_top = 52.0
 	caption.alignment = BoxContainer.ALIGNMENT_CENTER
-	_banner = UiKit.heading("HIT", 78, Palette.HIT_GLOW)
-	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_banner_sub = UiKit.body("", 30, Palette.INK)
-	_banner_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_child(_banner)
-	caption.add_child(_banner_sub)
-	_cutscene_layer.add_child(caption)
-
-	_skip_hint = UiKit.body("click to skip", 20, Palette.INK_DIM)
-	_skip_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_skip_hint.offset_left = -220.0
-	_skip_hint.offset_top = -60.0
-	_cutscene_layer.add_child(_skip_hint)
+	cut_banner = UiKit.heading("HIT", 78, Palette.HIT_GLOW)
+	cut_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cut_sub = UiKit.body("", 30, Palette.INK)
+	cut_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.add_child(cut_banner)
+	caption.add_child(cut_sub)
+	cutscene_layer.add_child(caption)
 
 func _play_cutscene(result: Dictionary) -> void:
 	var sunk: bool = result["outcome"] == "sunk"
-	_banner.text = "SUNK" if sunk else "HIT"
-	_banner.add_theme_color_override("font_color", Palette.HIT if sunk else Palette.HIT_GLOW)
-	_banner_sub.text = "%s, %s" % [result["ship_name"], _square_name(result["cell"])]
+	cut_banner.text = "SUNK" if sunk else "HIT"
+	cut_banner.add_theme_color_override("font_color", Palette.HIT if sunk else Palette.HIT_GLOW)
+	cut_sub.text = "%s, %s" % [result["ship_name"], _square_name(result["cell"])]
 
-	_cutscene_layer.visible = true
-	_scrim.visible = false
-	_banner.visible = true
-	_banner_sub.visible = true
-	_skip_hint.visible = true
-	move_child(_cutscene_layer, get_child_count() - 1)
-	_cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_cutscene.process_mode = Node.PROCESS_MODE_INHERIT
-	_cutscene.play(result)
-	await _cutscene.finished
-	_cutscene.process_mode = Node.PROCESS_MODE_DISABLED
-	_cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	_cutscene_layer.visible = false
-	move_child(_cutscene_layer, 1)
+	cutscene_layer.visible = true
+	cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	cutscene.process_mode = Node.PROCESS_MODE_INHERIT
+	cutscene.play(result)
+	await cutscene.finished
+	cutscene.process_mode = Node.PROCESS_MODE_DISABLED
+	cutscene_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	cutscene_layer.visible = false
 
 func _square_name(cell: Vector2i) -> String:
 	return "%s%d" % [GridView.LETTERS[cell.y], cell.x + 1]
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _cutscene_layer.visible and event is InputEventMouseButton and event.pressed:
-		_cutscene.skip()
-		return
-	if _screens.get("placement", null) != null and _screens["placement"].visible:
+	if cutscene_layer.visible and event is InputEventMouseButton and event.pressed:
+		cutscene.skip()
+	elif screens.has("placement") and screens["placement"].visible:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_R:
-			_rotate_placement()
+			_update_place_hint()
 
 # -------------------------------------------------------------- handover
 
 func _build_handover() -> void:
 	var screen := _new_screen("handover")
-	_handover_title = UiKit.heading("PASS THE DEVICE", 66, Palette.BRASS)
-	_handover_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_handover_note = UiKit.body("", 28)
-	_handover_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var scrim := ColorRect.new()
+	scrim.color = Palette.PAPER
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.add_child(scrim)
+	screen.move_child(scrim, 0)
+	var title := UiKit.heading("PASS THE DEVICE", 66, Palette.BRASS)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	handover_note = UiKit.body("", 28)
+	handover_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var go := UiKit.button("I AM READY", true)
 	go.pressed.connect(_leave_handover)
 	row.add_child(go)
-	screen.add_child(_handover_title)
-	screen.add_child(_handover_note)
+	screen.add_child(title)
+	screen.add_child(handover_note)
 	screen.add_child(UiKit.spacer(30))
 	screen.add_child(row)
 
-var _handover_next: Callable = Callable()
-
 func _go_to_handover(title: String, note: String, next: Callable) -> void:
-	_handover_title.text = title
-	_handover_note.text = note
+	handover_note.text = note
 	_handover_next = next
 	_show("handover")
 
@@ -506,10 +313,15 @@ func _leave_handover() -> void:
 
 func _build_over() -> void:
 	var screen := _new_screen("over")
-	_over_title = UiKit.heading("VICTORY", 86, Palette.BRASS)
-	_over_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_over_detail = UiKit.body("", 28)
-	_over_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var scrim := ColorRect.new()
+	scrim.color = Color(Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, 0.72)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.add_child(scrim)
+	screen.move_child(scrim, 0)
+	over_title = UiKit.heading("VICTORY", 86, Palette.BRASS)
+	over_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	over_detail = UiKit.body("", 28)
+	over_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 22)
@@ -519,20 +331,19 @@ func _build_over() -> void:
 	menu.pressed.connect(func(): _show("menu"))
 	row.add_child(again)
 	row.add_child(menu)
-	screen.add_child(_over_title)
-	screen.add_child(_over_detail)
+	screen.add_child(over_title)
+	screen.add_child(over_detail)
 	screen.add_child(UiKit.spacer(30))
 	screen.add_child(row)
 
 func _on_match_over(winner: int) -> void:
 	await get_tree().create_timer(0.3).timeout
-	if _cutscene_layer.visible:
-		await _cutscene.finished
+	if cutscene_layer.visible:
+		await cutscene.finished
 	if Game.mode == Game.Mode.VS_AI:
-		_over_title.text = "VICTORY" if winner == Game.HUMAN else "YOUR FLEET IS GONE"
+		over_title.text = "VICTORY" if winner == Game.HUMAN else "YOUR FLEET IS GONE"
 	else:
-		_over_title.text = "%s WINS" % PLAYER_NAMES[winner]
-	_over_detail.text = "%d shots, %d of them hits - %.0f%% accuracy." % [
-		Game.shots_fired[winner], Game.hits_landed[winner], Game.accuracy(winner) * 100.0
-	]
+		over_title.text = "%s WINS" % PLAYER_NAMES[winner]
+	over_detail.text = "%d shots, %d of them hits - %.0f%% accuracy." % [
+		Game.shots_fired[winner], Game.hits_landed[winner], Game.accuracy(winner) * 100.0]
 	_show("over")

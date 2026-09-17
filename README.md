@@ -1,18 +1,33 @@
 # Direct Hit
 
-Battleships, except every hit is a real ship taking a real shell.
+Battleships, fought from the bridge of a battleship.
 
-Call a square, and if something is under it the board steps aside: a camera drops
-to the water beside the vessel you just found, the round comes in, and you watch
-the hull take it. The ship in the cutscene is the ship you hit, the hole is where
-along her length you hit her, and if that was the last square she had left, she
-goes down while you watch.
+There is no chart on a screen. You stand on the bridge of the Littorio with your
+own fleet in formation around you - a carrier, a cruiser, a destroyer and a
+submarine - and you fight from there. Beside you is a lit plotting table with the
+enemy's stretch of sea on it; that is where you lay your own fleet out before the
+action and where you call a target once it starts. Then you put your eye to the
+director sight, lay the guns on the bearing it gives you, and fire.
 
-Built in Godot 4.7. Five real hulls - a Ford-class carrier, the Littorio, a
-Ticonderoga, a nuclear submarine and an Arleigh Burke destroyer - on a Gerstner
-sea, all in real time.
+If the round finds something, the camera goes to it: the vessel you hit, taking
+that shell at the point along her hull where you actually hit her, and going down
+if that was her last square. Afterwards she stays on your horizon, burning.
+
+When they fire back you do not read about it. You are standing on the ship they
+are shooting at.
+
+Built in Godot 4.7. One unit is one metre, five real hulls on a Gerstner sea, and
+everything within arm's reach of the player built in code - because a model meant
+to be seen from half a mile away does not survive being stood on.
 
 ## Playing
+
+| key | what it does |
+|---|---|
+| mouse | look around the bridge |
+| T | the plotting table, and back |
+| SPACE | the gun sight; fire when the guns are on |
+| ESC | back to the bridge |
 
 Two modes: against the computer, or pass-the-device for two people.
 
