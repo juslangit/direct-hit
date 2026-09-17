@@ -8,9 +8,9 @@ changes. This is the generator: the project notes stay the source of truth and
 the page is rebuilt from them.
 
     python3 tools/docs/build_docs.py
-    python3 tools/docs/build_docs.py --publish                # and put it on the website
+    python3 tools/docs/build_docs.py --publish                # and rebuild the local records site
 
-SITE: https://luqman-docs.netlify.app/direct-hit/
+SITE: ~/Documents/dev/docs-site/direct-hit/index.html   (open it with `docs-site open`)
 Run `docs-site publish` after building to put the new page there.
 
 The machinery here - the markdown converter, the image embedding, the page
@@ -48,7 +48,7 @@ PROJECT = pathlib.Path(__file__).resolve().parents[2]
 KNOWLEDGE = pathlib.Path(os.environ.get(
     "KNOWLEDGE", pathlib.Path.home() / ".claude/knowledge/projects/direct-hit"))
 OUT = PROJECT / "docs" / "index.html"
-SITE = "https://luqman-docs.netlify.app/direct-hit/"   # the page on the documentation website
+SITE = pathlib.Path.home() / "Documents/dev/docs-site/direct-hit/index.html"   # the built page on this machine
 SHOTS = PROJECT / "dev" / "shots"
 IMAGE_WIDTH = 880
 IMAGE_QUALITY = 62
