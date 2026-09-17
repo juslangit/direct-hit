@@ -47,8 +47,14 @@ func _draw() -> void:
 		_draw_readout(font)
 	_draw_hint(font)
 	if message != "":
-		draw_string(font, Vector2(0.0, size.y * 0.24), message,
-			HORIZONTAL_ALIGNMENT_CENTER, size.x, 34, Palette.INK)
+		var width := size.x * 0.7
+		var left := (size.x - width) * 0.5
+		# High, clear of the plotting table. At a fifth of the way down it sat
+		# across the column numbers along the top of the board.
+		var top := size.y * 0.075
+		draw_rect(Rect2(left, top - 34.0, width, 52.0), Color(0, 0, 0, 0.38))
+		draw_string(font, Vector2(left, top), message,
+			HORIZONTAL_ALIGNMENT_CENTER, width, 34, Palette.INK)
 
 func _draw_reticle(middle: Vector2) -> void:
 	var colour: Color = Palette.GOOD if on_target else Palette.INK_DIM
@@ -160,14 +166,21 @@ func _relative_bearing(degrees: float) -> String:
 func _shortest_angle(degrees: float) -> float:
 	return fposmod(degrees + 180.0, 360.0) - 180.0
 
+## What to do next, always on screen and always legible.
+##
+## It used to be small grey text over whatever the sky was doing, which is no
+## use to somebody who has just picked the game up and does not know that the
+## plotting table exists at all.
 func _draw_hint(font: Font) -> void:
 	var text := ""
 	match mode:
-		0: text = "T  the plotting table        SPACE  the gun sight"
-		1: text = "click a square on the plot        T  back to the bridge"
-		2: text = "SPACE or click  fire        ESC  back to the bridge"
-	draw_string(font, Vector2(0.0, size.y - 34.0), text,
-		HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, Palette.INK_DIM)
+		0: text = "T  the plotting table          SPACE  the gun sight          ESC  pause"
+		1: text = "click a square on the plot          T  back to the windows          ESC  pause"
+		2: text = "turn until the two marks meet, then SPACE to fire          BACKSPACE  back          ESC  pause"
+	var height := 44.0
+	draw_rect(Rect2(0.0, size.y - height, size.x, height), Color(0, 0, 0, 0.42))
+	draw_string(font, Vector2(0.0, size.y - 14.0), text,
+		HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Palette.INK)
 
 func _square_name(cell: Vector2i) -> String:
 	return "%s%d" % [GridView.LETTERS[cell.y], cell.x + 1]

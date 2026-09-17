@@ -28,6 +28,8 @@ var cut_banner: Label
 var cut_sub: Label
 
 var _handover_next: Callable = Callable()
+var _current := "menu"
+var _paused_from := ""
 var _placing_player := 0
 
 func _ready() -> void:
@@ -40,6 +42,7 @@ func _ready() -> void:
 	ui.layer = 2
 	add_child(ui)
 	_build_menu()
+	_build_pause()
 	_build_placement_bar()
 	_build_handover()
 	_build_over()
@@ -49,6 +52,7 @@ func _ready() -> void:
 	_show("menu")
 
 func _show(which: String) -> void:
+	_current = which
 	for name in screens:
 		screens[name].visible = name == which
 	# The bridge only takes the mouse while the game is actually being played.
@@ -73,6 +77,60 @@ func _new_screen(name: String, centred := true) -> VBoxContainer:
 	return holder
 
 # -------------------------------------------------------------------- menu
+
+## A way out, at any moment.
+##
+## Once the battle starts the bridge takes the pointer, and a captured pointer
+## with no pause and no quit is a trap: the cursor is gone, nothing on screen
+## says how to get it back, and the only way out is to kill the program. ESC
+## now always reaches this, whatever the player is in the middle of.
+func _build_pause() -> void:
+	var screen := _new_screen("pause")
+	var scrim := ColorRect.new()
+	scrim.color = Color(Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, 0.78)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(scrim)
+	screen.move_child(scrim, 0)
+
+	var title := UiKit.heading("STAND EASY", 62, Palette.BRASS)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var keys := UiKit.body(
+		"mouse  look around the bridge\n" +
+		"T  the plotting table, and back\n" +
+		"SPACE  the gun sight, then fire\n" +
+		"R or right click  turn a ship while laying out\n" +
+		"ESC  this screen", 26)
+	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 20)
+	var resume := UiKit.button("CARRY ON", true)
+	resume.pressed.connect(_resume)
+	var port := UiKit.button("BACK TO PORT")
+	port.pressed.connect(func(): _show("menu"))
+	var quit := UiKit.button("LEAVE THE SHIP")
+	quit.pressed.connect(func(): get_tree().quit())
+	row.add_child(resume)
+	row.add_child(port)
+	row.add_child(quit)
+
+	screen.add_child(title)
+	screen.add_child(keys)
+	screen.add_child(UiKit.spacer(24))
+	screen.add_child(row)
+
+func _pause() -> void:
+	if screens["pause"].visible or screens["menu"].visible or screens["over"].visible:
+		return
+	_paused_from = _current
+	_show("pause")
+
+func _resume() -> void:
+	_show(_paused_from)
+	if _paused_from == "":
+		bridge.refresh_mouse_mode()
 
 func _build_menu() -> void:
 	var screen := _new_screen("menu")
@@ -275,6 +333,13 @@ func _square_name(cell: Vector2i) -> String:
 	return "%s%d" % [GridView.LETTERS[cell.y], cell.x + 1]
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if screens["pause"].visible:
+			_resume()
+		else:
+			_pause()
+		get_viewport().set_input_as_handled()
+		return
 	if cutscene_layer.visible and event is InputEventMouseButton and event.pressed:
 		cutscene.skip()
 	elif screens.has("placement") and screens["placement"].visible:
