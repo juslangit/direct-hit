@@ -23,3 +23,12 @@ const HIT_GLOW := Color("ff8a4c")
 const SUNK := Color("8e2116")
 const MISS := Color("9fb8c8")
 const GOOD := Color("4fb286")
+
+## The plotting table is aged chart paper now rather than a lit blue screen, so
+## everything drawn on it is ink and pencil instead of glowing lines.
+const PAPER_SHEET := Color("efe3cc")
+const PAPER_INK := Color("2e2418")
+const PAPER_INK_SOFT := Color("6b5a40")
+const PAPER_RULE := Color("8a7757")
+const PAPER_RULE_FAINT := Color("9d8a68")
+const PAPER_PENCIL := Color("5a5648")

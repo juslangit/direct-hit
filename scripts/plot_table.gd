@@ -120,9 +120,16 @@ func _build() -> void:
 	# also means the chart stays readable whatever the weather is doing.
 	glass.emission_enabled = true
 	glass.emission_texture = _viewport.get_texture()
-	glass.emission_energy_multiplier = 0.85
-	glass.roughness = 0.25
+	# Paper lit by the table's lamp, not a screen. Left at screen brightness the
+	# sheet glows like a lightbox and stops reading as paper at all.
+	glass.emission_energy_multiplier = 0.32
+	# Paper, not glass. At a low roughness the sheet holds a mirror image of the
+	# deckhead lamp above it - a soft white blob right through the middle of the
+	# board, which survived removing the table's own lamp because it was never
+	# that lamp making it.
+	glass.roughness = 0.92
 	glass.metallic = 0.0
+	glass.metallic_specular = 0.05
 
 	var top := QuadMesh.new()
 	top.size = TOP
@@ -134,32 +141,20 @@ func _build() -> void:
 	_surface.position.y = 0.014
 	_plane_node.add_child(_surface)
 
-	# A shaded lamp over the plot, because a lit table with no lamp above it
-	# reads as a television lying on its back.
-	var lamp := SpotLight3D.new()
-	lamp.position = Vector3(0.0, 1.62, 0.55)
-	lamp.rotation.x = -PI / 2.0 + deg_to_rad(12.0)
-	lamp.light_color = Color(1.0, 0.92, 0.78)
-	# Low. The plot carries its own light, so the lamp is here to say where the
-	# light is coming from, not to illuminate the chart - turned up it burns a
-	# white hole through the middle of the board.
-	lamp.light_energy = 0.4
-	lamp.spot_range = 2.6
-	lamp.spot_angle = 46.0
-	add_child(lamp)
+	# No lamp over the plot any more. It made sense over a dark glass screen;
+	# over pale paper it only ever burned a soft white hole through the middle
+	# of the board, and the chart already carries its own light through the
+	# material's emission.
 
 ## Where to stand to read the plot: straight out along its own face, far enough
 ## back that the whole board fits.
 ##
 ## Worked out from the surface's transform rather than written down as offsets
 ## from the table's feet, because the plot is tipped and those are two different
-## directions. Offsets guessed in the table's frame put the reader's nose on the
-## glass, and then - once the tilt went up - behind it entirely.
+## directions.
 func reading_pose(vertical_fov_degrees: float) -> Array:
 	var normal: Vector3 = _surface.global_transform.basis.z.normalized()
 	var centre: Vector3 = _surface.global_position
-	# The distance at which the board's longer side just fills the view, plus a
-	# margin so it is not jammed against the edges of the screen.
 	# The margin leaves room at the bottom of the screen for the instruction
 	# line and the buttons, which otherwise sit across the last row of squares.
 	var reach: float = (TOP.y * 1.52) / (2.0 * tan(deg_to_rad(vertical_fov_degrees) * 0.5))
