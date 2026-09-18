@@ -64,6 +64,14 @@ must appear in the game's credits screen or README before release.
 Downloaded from Sketchfab. If the license says Attribution, this credit
 must appear in the game's credits screen or README before release.
 
+## Sky
+
+`assets/hdri/kloofendal_38d_partly_cloudy_puresky_4k.hdr` is from
+[Poly Haven](https://polyhaven.com/a/kloofendal_38d_partly_cloudy_puresky),
+released **CC0** - public domain, no attribution required, safe to sell. It is
+credited here anyway, because knowing where a thing came from is worth more
+than the licence requires.
+
 ## Sound
 
 All sound is CC0, found with the `sfx` tool. Full provenance in `assets/audio/freesound/SOURCES.md`.

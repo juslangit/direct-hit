@@ -16,13 +16,24 @@ const OCEAN_SHADER := "res://assets/shaders/ocean.gdshader"
 ## moderate sea that a battleship with five metres of freeboard rides through
 ## without shipping water over her own bow.
 const WAVE_SCALE := 2.0
-const SKY_SHADER := "res://assets/shaders/sky.gdshader"
+## A real sky, photographed. The procedural one it replaced could make clouds
+## but could not make light: an HDRI carries the whole sky's brightness, so the
+## ambient and the reflections on the water come from the same image the player
+## is looking at.
+const SKY_PANORAMA := "res://assets/hdri/kloofendal_38d_partly_cloudy_puresky_4k.hdr"
+
+## Where the sun is in that image, found by dev/checks/_sunangle.gd and checked
+## by pointing a camera down it. If the panorama is ever swapped, run that scene
+## again - a light aimed anywhere else puts the shadows on the ships at odds
+## with the sky behind them, which nobody can name but everybody feels.
+const SUN_ROTATION := Vector3(-37.793, -36.035, 0.0)
 
 ## The sun, aimed so its glare lies across the water rather than behind the
 ## camera, which is what gives the sea its highlights.
 static func make_sun() -> DirectionalLight3D:
 	var sun := DirectionalLight3D.new()
-	sun.rotation = Vector3(deg_to_rad(-22.0), deg_to_rad(125.0), 0.0)
+	sun.rotation = Vector3(
+		deg_to_rad(SUN_ROTATION.x), deg_to_rad(SUN_ROTATION.y), deg_to_rad(SUN_ROTATION.z))
 	sun.light_energy = 1.5
 	sun.light_color = Color(1.0, 0.94, 0.84)
 	sun.shadow_enabled = true

@@ -33,6 +33,11 @@ func _ready() -> void:
 	await _watch("br_port_window", 88.0, -4.0)
 	await _watch("br_the_wheel", 172.0, -9.0)
 	await _watch("br_aft_quarter", 128.0, -6.0)
+	# Straight at the sun in the panorama. If the light and the sky agree, the
+	# glitter path on the water runs from the ship to the sun's own disc; if
+	# they do not, the water shines in one direction and the sky burns in
+	# another, and the picture quietly stops making sense.
+	await _watch("br_into_the_sun", -54.0, 22.0)
 
 	bridge.set_mode(1)
 	await get_tree().create_timer(0.9).timeout
