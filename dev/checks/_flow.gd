@@ -41,15 +41,18 @@ func _check(label: String, condition: bool, detail: String = "") -> void:
 func _opening() -> void:
 	print("the first thing anybody sees")
 	_check("the menu is up", game.screens["menu"].visible)
-	_check("the bridge is already there behind it", game.bridge != null and game.bridge.flagship != null)
-	_check("the mouse is not captured on a menu", not game.bridge.capture_mouse)
-	_check("the fleet has its escorts", game.bridge.escorts.get_child_count() == 4,
-		"%d escorts" % game.bridge.escorts.get_child_count())
+	# No game behind the menu. It used to be the live bridge with the title
+	# drawn over it, which kept the whole ocean turning at full cost to be a
+	# backdrop and gave the player no sense of having started anything.
+	_check("no game is running behind the menu", game.bridge == null)
+	_check("the mouse is free on a menu", Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
 
 func _laying_out() -> void:
 	print("laying out your own fleet")
 	game._begin(Game.Mode.VS_AI)
 	await get_tree().process_frame
+	_check("starting a match builds the bridge", game.bridge != null and game.bridge.flagship != null)
+	_check("the fleet has its escorts", game.bridge != null and game.bridge.escorts.get_child_count() == 4)
 	_check("the placement bar is up", game.screens["placement"].visible)
 	_check("the player is at the plotting table", game.bridge.mode == 1)
 	_check("the table carries your own water", game.bridge.table.chart.board == Game.boards[Game.HUMAN])
@@ -61,13 +64,13 @@ func _laying_out() -> void:
 	game.bridge._place_ship(Vector2i(1, 1))
 	_check("a click lays a ship down", Game.boards[Game.HUMAN].ships.size() == before + 1)
 
-	# Nothing may cover the world and eat the clicks meant for the table.
-	var swallowing := []
-	for name in game.screens:
-		if game.screens[name].mouse_filter != Control.MOUSE_FILTER_IGNORE:
-			swallowing.append(name)
-	_check("no full-screen panel swallows clicks meant for the plot",
-		swallowing.is_empty(), "%s would" % str(swallowing))
+	# The placement bar is the one screen that is up *while the player is
+	# working on the world behind it*, so it is the one that must not eat the
+	# clicks meant for the plot. The menu, the pause screen and the handover
+	# are all supposed to stop clicks - that is their job.
+	_check("the placement bar does not swallow clicks meant for the plot",
+		game.screens["placement"].mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"filter is %d" % game.screens["placement"].mouse_filter)
 
 	# A ship has to be layable up and down as well as across.
 	var was: bool = game.bridge.placing_horizontal
@@ -131,6 +134,12 @@ func _battle() -> void:
 	_check("a match reaches an ending", Game.phase == Game.Phase.OVER, "after %d shots" % shots)
 
 func _two_players() -> void:
+	# Going back to port has to take the world down with it, or the ocean keeps
+	# turning behind a menu that claims to be a menu.
+	game._to_port()
+	await get_tree().process_frame
+	_check("going back to port tears the world down", game.bridge == null)
+
 	print("two players, one device")
 	game._begin(Game.Mode.PASS_AND_PLAY)
 	await get_tree().process_frame

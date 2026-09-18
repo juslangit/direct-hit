@@ -28,6 +28,9 @@ const SKY_PANORAMA := "res://assets/hdri/kloofendal_38d_partly_cloudy_puresky_4k
 ## with the sky behind them, which nobody can name but everybody feels.
 const SUN_ROTATION := Vector3(-37.793, -36.035, 0.0)
 
+## How much to scale the panorama by before it is used as sky and as light.
+const SKY_ENERGY := 0.42
+
 ## The sun, aimed so its glare lies across the water rather than behind the
 ## camera, which is what gives the sea its highlights.
 static func make_sun() -> DirectionalLight3D:
@@ -41,8 +44,15 @@ static func make_sun() -> DirectionalLight3D:
 	return sun
 
 static func make_environment() -> Environment:
-	var sky_material := ShaderMaterial.new()
-	sky_material.shader = load("res://assets/shaders/sky.gdshader")
+	var sky_material := PanoramaSkyMaterial.new()
+	sky_material.panorama = load(SKY_PANORAMA)
+	sky_material.filter = true
+	# An HDRI's absolute brightness is whatever the camera that shot it decided,
+	# and this one lands dark. Scaling it here rather than opening up the tone
+	# mapper is the right knob: it brightens the sky the player sees and the
+	# ambient it casts on the ships by the same amount, so the two cannot drift
+	# apart.
+	sky_material.energy_multiplier = SKY_ENERGY
 
 	var sky := Sky.new()
 	sky.sky_material = sky_material
@@ -53,6 +63,9 @@ static func make_environment() -> Environment:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	# The luminance that comes out white. Raising it does not give the sky more
+	# headroom, it darkens everything below it - at 8 the afternoon turned into
+	# night.
 	env.tonemap_white = 4.0
 	env.ssao_enabled = false
 	env.glow_enabled = true
@@ -69,7 +82,11 @@ static func make_environment() -> Environment:
 	# this started with, anything past about three was gone completely, which
 	# included the entire battle.
 	env.fog_density = 0.00012
-	env.fog_sky_affect = 0.3
+	# Barely any. Depth fog reaches the sky at infinite distance, so this is the
+	# fraction of the whole sky dome that gets painted over in flat haze - and a
+	# third of it was enough to erase the cumulus the HDRI is full of, leaving a
+	# pale nothing that made the photographed sky look like no sky at all.
+	env.fog_sky_affect = 0.06
 	return env
 
 static func make_ocean(size: float, subdivisions: int) -> MeshInstance3D:

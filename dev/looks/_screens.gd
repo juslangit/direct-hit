@@ -76,9 +76,13 @@ func _save(name: String) -> void:
 	await get_tree().create_timer(0.35).timeout
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
-	var cam: Camera3D = game.bridge.camera
-	_report.append("%-22s yaw %7.1f  pitch %7.1f  mode %d  fov %5.1f" % [
-		name, rad_to_deg(game.bridge.head.rotation.y), rad_to_deg(cam.rotation.x),
-		game.bridge.mode, cam.fov])
+	# There is no bridge at the menu any more, and nothing to report about it.
+	if game.bridge == null:
+		_report.append("%-22s no bridge - menu only" % name)
+	else:
+		var cam: Camera3D = game.bridge.camera
+		_report.append("%-22s yaw %7.1f  pitch %7.1f  mode %d  fov %5.1f" % [
+			name, rad_to_deg(game.bridge.head.rotation.y), rad_to_deg(cam.rotation.x),
+			game.bridge.mode, cam.fov])
 	var image := get_viewport().get_texture().get_image()
 	image.save_png(ProjectSettings.globalize_path(SHOTS + name + ".png"))

@@ -33,11 +33,9 @@ var _paused_from := ""
 var _placing_player := 0
 
 func _ready() -> void:
-	bridge = (load("res://scenes/bridge.tscn") as PackedScene).instantiate()
-	add_child(bridge)
-	bridge.shot_requested.connect(_on_shot_requested)
-	bridge.shot_landed.connect(_on_shot_landed)
-
+	# No bridge yet. It is built when a match starts and torn down when the
+	# player goes back to port, so the menu is a screen rather than a window
+	# onto a game that is already running.
 	ui = CanvasLayer.new()
 	ui.layer = 2
 	add_child(ui)
@@ -55,6 +53,10 @@ func _show(which: String) -> void:
 	_current = which
 	for name in screens:
 		screens[name].visible = name == which
+	# With no bridge built there is nothing to hand the pointer to.
+	if bridge == null:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		return
 	# The bridge only takes the mouse while the game is actually being played.
 	# A captured pointer over a menu is a trap.
 	bridge.capture_mouse = which == ""
@@ -109,7 +111,7 @@ func _build_pause() -> void:
 	var resume := UiKit.button("CARRY ON", true)
 	resume.pressed.connect(_resume)
 	var port := UiKit.button("BACK TO PORT")
-	port.pressed.connect(func(): _show("menu"))
+	port.pressed.connect(_to_port)
 	var quit := UiKit.button("LEAVE THE SHIP")
 	quit.pressed.connect(func(): get_tree().quit())
 	row.add_child(resume)
@@ -133,35 +135,36 @@ func _resume() -> void:
 		bridge.refresh_mouse_mode()
 
 func _build_menu() -> void:
-	var screen := _new_screen("menu")
-	var scrim := ColorRect.new()
-	scrim.color = Color(Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, 0.52)
-	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(scrim)
-	screen.move_child(scrim, 0)
+	var menu: Control = (load("res://scenes/menu.tscn") as PackedScene).instantiate()
+	menu.play_requested.connect(func(mode: int): _begin(mode as Game.Mode))
+	menu.quit_requested.connect(func(): get_tree().quit())
+	ui.add_child(menu)
+	screens["menu"] = menu
+	menu.visible = false
 
-	var title := UiKit.heading("DIRECT HIT", 96, Palette.INK)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var tagline := UiKit.body("You have the bridge. Every hit is a real ship taking a real shell.", 26)
-	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+## Build the world, once, when there is finally a reason to.
+func _ensure_bridge() -> void:
+	if bridge != null:
+		return
+	bridge = (load("res://scenes/bridge.tscn") as PackedScene).instantiate()
+	add_child(bridge)
+	move_child(bridge, 0)
+	bridge.shot_requested.connect(_on_shot_requested)
+	bridge.shot_landed.connect(_on_shot_landed)
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 22)
-	var versus_ai := UiKit.button("PLAY THE COMPUTER", true)
-	versus_ai.pressed.connect(func(): _begin(Game.Mode.VS_AI))
-	var two_player := UiKit.button("TWO PLAYERS", true)
-	two_player.pressed.connect(func(): _begin(Game.Mode.PASS_AND_PLAY))
-	row.add_child(versus_ai)
-	row.add_child(two_player)
-
-	screen.add_child(title)
-	screen.add_child(tagline)
-	screen.add_child(UiKit.spacer(40))
-	screen.add_child(row)
+## Back to port: the ocean, the fleet and the weather all stop existing.
+func _to_port() -> void:
+	if bridge != null:
+		# Out of the tree first, then freed. queue_free() alone defers to the
+		# end of the frame, so starting a new match in the same frame leaves two
+		# bridges and two cameras alive at once and whichever entered last wins.
+		remove_child(bridge)
+		bridge.queue_free()
+		bridge = null
+	_show("menu")
 
 func _begin(mode: Game.Mode) -> void:
+	_ensure_bridge()
 	Game.start_match(mode)
 	_start_placement(Game.HUMAN)
 
@@ -399,7 +402,7 @@ func _build_over() -> void:
 	var again := UiKit.button("SAIL AGAIN", true)
 	again.pressed.connect(func(): _begin(Game.mode))
 	var menu := UiKit.button("BACK TO PORT", true)
-	menu.pressed.connect(func(): _show("menu"))
+	menu.pressed.connect(_to_port)
 	row.add_child(again)
 	row.add_child(menu)
 	screen.add_child(over_title)
