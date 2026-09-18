@@ -20,9 +20,19 @@ func _ready() -> void:
 	for label in Sound.CLIPS:
 		_check(label, ResourceLoader.exists(Sound.CLIPS[label]), Sound.CLIPS[label])
 
-	print("shaders")
-	for path in ["res://assets/shaders/ocean.gdshader", "res://assets/shaders/sky.gdshader"]:
-		_check(path.get_file(), ResourceLoader.exists(path))
+	print("shaders and sky")
+	_check("ocean.gdshader", ResourceLoader.exists("res://assets/shaders/ocean.gdshader"))
+	_check("the sky panorama", ResourceLoader.exists(Seascape.SKY_PANORAMA), Seascape.SKY_PANORAMA)
+
+	# The sun in the game has to agree with the sun in the sky image. The angle
+	# is worked out and proved by dev/checks/_sunangle, and pinned here so that
+	# swapping the panorama without re-running it does not go unnoticed.
+	var sun_in_image := Vector3(-0.464878, 0.61281, 0.639025)
+	var sun := Seascape.make_sun()
+	var shines_from: Vector3 = sun.transform.basis.z.normalized()
+	_check("the sun is aimed at the sun in the sky",
+		shines_from.angle_to(sun_in_image) < deg_to_rad(2.0),
+		"%.1f degrees apart" % rad_to_deg(shines_from.angle_to(sun_in_image)))
 
 	print("credit")
 	# Every hull came from Sketchfab under CC Attribution, which is only free

@@ -16,7 +16,8 @@ if that was her last square. Afterwards she stays on your horizon, burning.
 When they fire back you do not read about it. You are standing on the ship they
 are shooting at.
 
-Built in Godot 4.7. One unit is one metre, five real hulls on a Gerstner sea, and
+Built in Godot 4.7. One unit is one metre, five real hulls on a Gerstner sea under a
+photographed sky, and
 everything within arm's reach of the player built in code - because a model meant
 to be seen from half a mile away does not survive being stood on.
 
