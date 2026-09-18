@@ -24,16 +24,29 @@ static func button(text: String, wide: bool = false) -> Button:
 	b.custom_minimum_size = Vector2(320.0 if wide else 210.0, 66.0)
 	b.add_theme_font_size_override("font_size", 24)
 	b.add_theme_color_override("font_color", Palette.INK)
-	b.add_theme_color_override("font_hover_color", Palette.PAPER)
-	b.add_theme_color_override("font_pressed_color", Palette.PAPER)
+	b.add_theme_color_override("font_hover_color", Palette.INK)
+	b.add_theme_color_override("font_pressed_color", Palette.INK)
 	b.add_theme_color_override("font_disabled_color", Palette.INK_DIM * Color(1, 1, 1, 0.5))
-	b.add_theme_stylebox_override("normal", _box(Palette.PANEL, Palette.BRASS_DIM))
-	b.add_theme_stylebox_override("hover", _box(Palette.BRASS, Palette.BRASS))
-	b.add_theme_stylebox_override("pressed", _box(Palette.BRASS_DIM, Palette.BRASS))
-	b.add_theme_stylebox_override("disabled", _box(Palette.PANEL * Color(1, 1, 1, 0.6), Palette.PANEL_EDGE))
+	# Painted steel with a brass edge, nine-sliced so one 256x96 plate serves a
+	# button of any size. A StyleBox can carry a texture or a border but not
+	# both, which is why the brass is already on the plate.
+	b.add_theme_stylebox_override("normal", plate("plate"))
+	b.add_theme_stylebox_override("hover", plate("plate_hover"))
+	b.add_theme_stylebox_override("pressed", plate("plate_pressed"))
+	b.add_theme_stylebox_override("disabled", plate("plate_off"))
 	b.add_theme_stylebox_override("focus", _box(Color(0, 0, 0, 0), Palette.BRASS))
 	b.pressed.connect(func(): Sound.play("click", -12.0, 1.6))
 	return b
+
+## One of the composed plates in assets/ui, as a nine-sliced box.
+static func plate(name: String) -> StyleBoxTexture:
+	var box := StyleBoxTexture.new()
+	box.texture = load("res://assets/ui/%s.png" % name)
+	# The brass edge is four pixels; the slice has to keep more than that so the
+	# corners are not stretched into smears.
+	box.set_texture_margin_all(12.0)
+	box.set_content_margin_all(15.0)
+	return box
 
 static func panel(colour: Color = Palette.PANEL) -> PanelContainer:
 	var p := PanelContainer.new()

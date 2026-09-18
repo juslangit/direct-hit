@@ -83,9 +83,11 @@ func _build_face() -> void:
 	var title := UiKit.heading("DIRECT HIT", 104, Palette.INK)
 	title.add_theme_constant_override("line_spacing", -8)
 
-	var rule := ColorRect.new()
-	rule.color = Palette.BRASS
-	rule.custom_minimum_size = Vector2(120, 3)
+	var rule := TextureRect.new()
+	rule.texture = load("res://assets/ui/brass_trim.jpg")
+	rule.custom_minimum_size = Vector2(190, 7)
+	rule.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rule.stretch_mode = TextureRect.STRETCH_SCALE
 
 	var tagline := UiKit.body(
 		"You have the bridge. Call a square on the plot,\nlay the guns on the bearing, and watch what you hit.",

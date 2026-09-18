@@ -142,6 +142,10 @@ func _two_players() -> void:
 
 	print("two players, one device")
 	game._begin(Game.Mode.PASS_AND_PLAY)
+	# Two frames, not one: starting a match after going back to port builds a
+	# whole bridge, and acting on it in the frame it was born in is something
+	# no player can do and this check should not either.
+	await get_tree().process_frame
 	await get_tree().process_frame
 	game.bridge.scatter_fleet(Game.rng)
 	game._update_place_hint()

@@ -23,6 +23,7 @@ var preview_legal := true
 var last_shot := Vector2i(-1, -1)
 
 var _margin := 34.0
+var _paper: Texture2D = load("res://assets/ui/chart_paper.jpg")
 var _cell := 48.0
 
 func _ready() -> void:
@@ -81,9 +82,15 @@ func _draw() -> void:
 	var o := _origin()
 	var span := _cell * float(Board.SIZE)
 
-	# The chart itself.
-	draw_rect(Rect2(o - Vector2(6, 6), Vector2(span + 12, span + 12)), Palette.PANEL_EDGE)
-	draw_rect(Rect2(o, Vector2(span, span)), Palette.WATER)
+	# The chart itself: aged paper, with the whole sheet showing under the
+	# margins so the letters and numbers sit on it rather than beside it.
+	var sheet := Rect2(o - Vector2(_margin, _margin), Vector2(span + _margin * 1.4, span + _margin * 1.4))
+	if _paper != null:
+		draw_texture_rect(_paper, sheet, false)
+	else:
+		draw_rect(sheet, Palette.PAPER_SHEET)
+	# A pencil box round the plotted water.
+	draw_rect(Rect2(o, Vector2(span, span)), Palette.PAPER_SHEET * Color(1, 1, 1, 0.25))
 
 	_draw_labels(o, span)
 	_draw_ships()
@@ -101,16 +108,16 @@ func _draw_labels(o: Vector2, span: float) -> void:
 		# Letters run down the left, numbers along the top - the way a chart
 		# is read aloud: "B7".
 		var letter_pos := Vector2(o.x - _margin + 6.0, o.y + i * _cell + _cell * 0.5 + size_px * 0.36)
-		draw_string(font, letter_pos, letter, HORIZONTAL_ALIGNMENT_LEFT, _margin - 10.0, size_px, Palette.INK_DIM)
+		draw_string(font, letter_pos, letter, HORIZONTAL_ALIGNMENT_LEFT, _margin - 10.0, size_px, Palette.PAPER_INK)
 		var number_pos := Vector2(o.x + i * _cell, o.y - 9.0)
-		draw_string(font, number_pos, number, HORIZONTAL_ALIGNMENT_CENTER, _cell, size_px, Palette.INK_DIM)
+		draw_string(font, number_pos, number, HORIZONTAL_ALIGNMENT_CENTER, _cell, size_px, Palette.PAPER_INK)
 
 func _draw_rules(o: Vector2, span: float) -> void:
 	for i in range(Board.SIZE + 1):
 		var at: float = o.x + i * _cell
 		var down: float = o.y + i * _cell
 		var heavy: bool = i == 0 or i == Board.SIZE
-		var colour: Color = Palette.RULE if heavy else Palette.RULE_FAINT
+		var colour: Color = Palette.PAPER_RULE if heavy else Palette.PAPER_RULE_FAINT
 		var width: float = 2.0 if heavy else 1.0
 		draw_line(Vector2(at, o.y), Vector2(at, o.y + span), colour, width)
 		draw_line(Vector2(o.x, down), Vector2(o.x + span, down), colour, width)
@@ -124,13 +131,13 @@ func _draw_ships() -> void:
 		var last := cell_rect(cells[-1])
 		var hull := first.merge(last).grow(-_cell * 0.16)
 		var sunk := ship.is_sunk()
-		draw_rect(hull, Palette.SUNK if sunk else Palette.STEEL_DARK, true)
-		draw_rect(hull, Palette.HIT if sunk else Palette.STEEL, false, 2.0)
+		draw_rect(hull, (Palette.SUNK if sunk else Palette.PAPER_PENCIL) * Color(1, 1, 1, 0.30), true)
+		draw_rect(hull, Palette.SUNK if sunk else Palette.PAPER_PENCIL, false, 2.0)
 		# A line down the spine, so a five-square carrier reads as one vessel
 		# rather than five boxes.
 		var spine_from := hull.position + (Vector2(0, hull.size.y * 0.5) if ship.horizontal else Vector2(hull.size.x * 0.5, 0))
 		var spine_to := spine_from + (Vector2(hull.size.x, 0) if ship.horizontal else Vector2(0, hull.size.y))
-		draw_line(spine_from, spine_to, Palette.STEEL, 1.0)
+		draw_line(spine_from, spine_to, Palette.PAPER_PENCIL, 1.0)
 
 func _draw_shots() -> void:
 	if board == null:
@@ -142,15 +149,16 @@ func _draw_shots() -> void:
 		var middle := rect.get_center()
 		if result == Board.Shot.MISS:
 			# A miss is a small flat disc: the splash, and nothing else.
-			draw_circle(middle, _cell * 0.13, Palette.MISS)
-			draw_arc(middle, _cell * 0.24, 0.0, TAU, 24, Palette.MISS * Color(1, 1, 1, 0.35), 1.5)
+			# A miss is pencilled, not lit: an open ring the way a plot is marked.
+			draw_arc(middle, _cell * 0.20, 0.0, TAU, 28, Palette.PAPER_INK_SOFT, 2.0)
+			draw_circle(middle, _cell * 0.05, Palette.PAPER_INK_SOFT)
 		elif result == Board.Shot.HIT:
 			var ship := board.ship_at(cell)
 			var finished: bool = ship != null and ship.is_sunk()
 			draw_rect(rect.grow(-2.0), (Palette.SUNK if finished else Palette.HIT) * Color(1, 1, 1, 0.35))
 			_draw_burst(middle, _cell * 0.30, Palette.HIT_GLOW if not finished else Palette.HIT)
 	if Board.in_bounds(last_shot):
-		draw_rect(cell_rect(last_shot).grow(-1.0), Palette.BRASS, false, 2.0)
+		draw_rect(cell_rect(last_shot).grow(-1.0), Palette.BRASS, false, 2.5)
 
 ## An eight-pointed star, drawn rather than stamped, so it scales with the
 ## chart and never turns into a blurry sprite.
@@ -173,11 +181,11 @@ func _draw_hover() -> void:
 	if not interactive or not Board.in_bounds(hovered) or not preview_cells.is_empty():
 		return
 	var rect := cell_rect(hovered)
-	draw_rect(rect.grow(-2.0), Palette.BRASS * Color(1, 1, 1, 0.16))
+	draw_rect(rect.grow(-2.0), Palette.BRASS * Color(1, 1, 1, 0.22))
 	draw_rect(rect.grow(-2.0), Palette.BRASS, false, 2.0)
 	# Cross-hairs out to the edges of the chart, the way a range is plotted.
 	var o := _origin()
 	var span := _cell * float(Board.SIZE)
-	var faint := Palette.BRASS * Color(1, 1, 1, 0.22)
+	var faint := Palette.BRASS * Color(1, 1, 1, 0.42)
 	draw_line(Vector2(rect.get_center().x, o.y), Vector2(rect.get_center().x, o.y + span), faint, 1.0)
 	draw_line(Vector2(o.x, rect.get_center().y), Vector2(o.x + span, rect.get_center().y), faint, 1.0)

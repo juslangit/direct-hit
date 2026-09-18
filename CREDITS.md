@@ -72,6 +72,13 @@ released **CC0** - public domain, no attribution required, safe to sell. It is
 credited here anyway, because knowing where a thing came from is worth more
 than the licence requires.
 
+## Interface art
+
+The menu key image and the three UI surfaces in `assets/ui/` were generated on
+**OpenArt** (Seedream 4.5, 2K) on 2026-09-18 from prompts written for this game.
+`assets/menu/candidates/SOURCE.md` and `assets/ui/SOURCE.md` record what each
+one is and what had to be done to it afterwards.
+
 ## Sound
 
 All sound is CC0, found with the `sfx` tool. Full provenance in `assets/audio/freesound/SOURCES.md`.
