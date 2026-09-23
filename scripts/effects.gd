@@ -181,6 +181,33 @@ static func rising_curve() -> CurveTexture:
 	tex.curve = curve
 	return tex
 
+## Smoke trailing: a funnel plume, which spreads far less than a burning ship's
+## column does. A ship under way is making smoke, not on fire, so her plume
+## widens to about twice what it left the funnel at and no more - given the
+## column's curve it came out as wide as it was tall, which is a ball again.
+static func trailing_curve() -> CurveTexture:
+	var curve := Curve.new()
+	curve.max_value = 3.0
+	curve.add_point(Vector2(0.0, 0.8))
+	curve.add_point(Vector2(0.4, 1.5))
+	curve.add_point(Vector2(1.0, 2.1))
+	var tex := CurveTexture.new()
+	tex.curve = curve
+	return tex
+
+## Smoke climbing: narrow and dark where it leaves the fire, four times as wide
+## and pale where it flattens out on top. This is the difference between a
+## column and a ball - a puff that is born at its full size makes the second.
+static func widening_curve() -> CurveTexture:
+	var curve := Curve.new()
+	curve.max_value = 5.0
+	curve.add_point(Vector2(0.0, 0.9))
+	curve.add_point(Vector2(0.45, 2.2))
+	curve.add_point(Vector2(1.0, 4.0))
+	var tex := CurveTexture.new()
+	tex.curve = curve
+	return tex
+
 static func gradient(points: Array) -> GradientTexture1D:
 	# A Gradient refuses to hold fewer than two points, so emptying it before
 	# filling it silently leaves the default black-to-white ramp in place and

@@ -16,6 +16,10 @@ const OCEAN_SHADER := "res://assets/shaders/ocean.gdshader"
 ## moderate sea that a battleship with five metres of freeboard rides through
 ## without shipping water over her own bow.
 const WAVE_SCALE := 2.0
+## How fast that swell runs. Named, rather than written at the one call site,
+## because the wake shader has to be given the same value - foam computed from a
+## sea running at a different speed slides over the swell it is meant to be on.
+const WAVE_SPEED := 0.8
 ## A real sky, photographed. The procedural one it replaced could make clouds
 ## but could not make light: an HDRI carries the whole sky's brightness, so the
 ## ambient and the reflections on the water come from the same image the player
@@ -98,7 +102,7 @@ static func make_ocean(size: float, subdivisions: int) -> MeshInstance3D:
 	var material := ShaderMaterial.new()
 	material.shader = load(OCEAN_SHADER)
 	material.set_shader_parameter("wave_scale", WAVE_SCALE)
-	material.set_shader_parameter("wave_speed", 0.8)
+	material.set_shader_parameter("wave_speed", WAVE_SPEED)
 	material.set_shader_parameter("detail_normal", ripple_texture())
 
 	var water := MeshInstance3D.new()

@@ -74,6 +74,14 @@ GALLERIES = [
         ("ui_battle_sight", "Eye to the director at eight and a half degrees: the bearing ribbon with the guns and the target nearly together, the elevation ladder, and the designator sitting on the square that was called."),
         ("br_sight", "Laid on, and free to fire."),
     ]),
+    ("screens-underway", "Under way", "Three things that separate a fleet action from a diorama, all added on 2026-09-18. Her guns train on the square you called - the Littorio is a bought model with her turrets welded on, so both forward turrets are cut out of the merged meshes at load time and hung on nodes that can rotate. Every ship leaves a wake, drawn as a strip of mesh displaced by the same Gerstner waves as the sea it lies on. And the wrecks on the horizon burn in proper columns; for three attempts they came out as dark balls, and the cause was particle turbulence, which carries particles along with it rather than merely shaking them.", [
+        ("gun_fore_and_aft", "Fore and aft, where she sits before a square has been called. Two superfiring triple turrets, both welded solid in the file this hull came out of."),
+        ("gun_trained_34", "Trained on the enemy's bearing, thirty-four degrees to starboard. Both gunhouses have stayed on their barbettes and the deck around them is whole, which is what the cut has to get right."),
+        ("gun_trained_90", "Hard over, which is the worst case for the cut: anything taken out of the hull by mistake is now thirty metres from where it belongs."),
+        ("wake_astern", "Her own wake from astern, running unbroken from under the stern and riding the swell. The foam pattern scrolls aft at exactly her own speed, so it stands still in the water while the strip carrying it moves with her."),
+        ("wake_from_the_beam", "And from the beam at sea level, which is how the player sees an escort's."),
+        ("wreck_column", "A wreck three kilometres off the starboard bow, with a cruiser of your own between you and her. Eight hundred metres of smoke, against the hundred-metre ball this was for three attempts."),
+    ]),
     ("screens-fleet", "The fleet", "Five real vessels, pulled from Sketchfab under CC Attribution and normalised at load rather than edited. One unit is one metre, and at sixty metres to a grid square four of the five come out within a few per cent of their real lengths. These are the photographs that caught the submarine sailing stern-first, and later every one of them riding with her main deck under water.", [
         ("carrier_side", "Carrier - five squares, 300 m. Gerald R. Ford class."),
         ("battleship_side", "Battleship - four squares, 240 m. The Littorio, which is the ship the player stands on."),

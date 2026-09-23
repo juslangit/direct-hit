@@ -45,6 +45,8 @@ var camera: Camera3D           ## the player's eyes: pitch
 var table: PlotTable
 var escorts: Node3D
 var revealed: Node3D           ## enemy ships we have found, burning at range
+var turrets: Array = []        ## her forward turrets, which train on the called square
+var turret: Turret             ## the foremost of them, which the muzzle flash hangs on
 
 var mode: Mode = Mode.WATCH
 var marked := Vector2i(-1, -1)
@@ -96,6 +98,7 @@ func _ready() -> void:
 	_build_table()
 	_build_guns()
 	_build_escorts()
+	_build_wakes()
 	_build_war()
 
 	revealed = Node3D.new()
@@ -117,6 +120,10 @@ func _build_flagship() -> void:
 	flagship.add_child(flagship_hull)
 	_hull_box = ShipModels.measure(flagship_hull)
 	_length = ShipModels.hull_length(Ship.Kind.BATTLESHIP)
+	# Her forward turrets, separated from the hull she was bought welded to so
+	# that they can train on the square the player called. See turret.gd.
+	turrets = Turret.cut_from(flagship_hull)
+	turret = turrets[0] if not turrets.is_empty() else null
 
 # --------------------------------------------------------------- the fleet
 
@@ -145,6 +152,42 @@ func _build_escorts() -> void:
 		station.add_child(ship)
 		station.set_meta("kind", kind)
 		escorts.add_child(station)
+
+## Where the foam sits, before the swell moves it. Sea level: the wake shader
+## rides it up and down with the waves and lifts it a hand's breadth clear of
+## the surface, so there is nothing to add here.
+const WAKE_HEIGHT := 0.0
+
+## The water the fleet leaves behind it.
+##
+## Five ships making fourteen knots across a sea with no wake on it are five
+## ships at anchor, and that was the single loudest thing wrong with the picture
+## from the bridge: the swell moved, the funnel smoke drifted, and the hulls sat
+## in the water like models on a mirror. A wake is the only thing in the frame
+## that says a ship is under way.
+##
+## Each one is hung on something steady rather than on the hull it belongs to -
+## the fleet for the flagship, the station for an escort - because the flagship
+## rolls in the swell, and a degree of roll is three metres of rise and fall at
+## the far end of a track this long, which reads as the sea breathing. See
+## wake.gd for what a wake is made of and why it is not a particle system.
+func _build_wakes() -> void:
+	var wake := Wake.astern_of(_hull_box.size.z, SAIL_SPEED)
+	wake.name = "FlagshipWake"
+	wake.position = Vector3(_hull_box.end.x, WAKE_HEIGHT, 0.0)
+	fleet.add_child(wake)
+
+	for station in escorts.get_children():
+		var hull := station.get_node_or_null("Hull") as Node3D
+		if hull == null:
+			continue
+		# Measured rather than worked out from the station, because `measure`
+		# already carries the hull's own offset on its station and so gives the
+		# stern and the beam in the frame the wake is going to live in.
+		var box := ShipModels.measure(hull)
+		var trail := Wake.astern_of(box.size.z, SAIL_SPEED)
+		trail.position = Vector3(box.end.x, WAKE_HEIGHT, 0.0)
+		station.add_child(trail)
 
 # ------------------------------------------------------- the enemy's water
 
@@ -315,6 +358,7 @@ func _on_cell_picked(cell: Vector2i) -> void:
 	if enemy_board != null and enemy_board.already_shot(cell):
 		return
 	marked = cell
+	_train_guns(cell)
 	table.chart.last_shot = cell
 	table.refresh()
 
@@ -428,9 +472,9 @@ func _build_bridge_set() -> void:
 
 # --------------------------------------------------------------- the guns
 
-## The forward turret, in the flagship's own frame. The bought hull's turrets
-## do not traverse, so the muzzle flash is staged where her forward guns
-## actually are and the shell departs from there.
+## Where her forward guns are, in the flagship's own frame. Used only when the
+## turret could not be cut out of the bought hull, in which case the guns are
+## welded down the centre line and the flash is staged there.
 const MUZZLE := Vector3(58.0, 14.0, 0.0)
 const SHELL_FLIGHT := 2.6     ## seconds from muzzle to fall of shot
 const SHELL_APEX := 220.0     ## metres above the straight line, at the top
@@ -443,18 +487,52 @@ var _shell: MeshInstance3D
 var _splash: GPUParticles3D
 var _firing := false
 
+## What the flash and the gun smoke hang on, and where on it they sit.
+##
+## The turret when there is one, so that they swing round with the guns. A
+## flash on the centre line while the barrels point thirty-four degrees off it
+## would be worse than the welded turret it replaced: it would say the guns are
+## decoration.
+func _muzzle_mount() -> Node3D:
+	return turret if turret != null else flagship
+
+func _muzzle_point() -> Vector3:
+	return turret.muzzle if turret != null else MUZZLE
+
+## Lay the guns on the square that was called.
+##
+## Bearing only - these guns train, they do not elevate, because the barrels
+## come out of a bought hull with no trunnion to pivot on and tipping the whole
+## gunhouse would lift its roof off the barbette.
+##
+## They are not brought back fore and aft between salvoes either. A ship in
+## action does not do that, and she does not need to: the enemy's whole box of
+## sea is six degrees wide at this range, so after the first long swing out to
+## his bearing the guns only ever creep a degree or two from square to square.
+func _train_guns(cell: Vector2i) -> void:
+	var target := flagship.to_local(fleet.to_global(cell_centre(cell)))
+	for gun in turrets:
+		# Each works out its own bearing from its own barbette. They are
+		# fourteen metres apart along the ship, which at six kilometres is
+		# under a fifth of a degree - but doing it per turret is what keeps
+		# them right if the enemy ever comes close.
+		(gun as Turret).train_along(target - (gun as Turret).position)
+
 func _build_guns() -> void:
+	var mount := _muzzle_mount()
+	var muzzle := _muzzle_point()
+
 	_muzzle_flash = OmniLight3D.new()
-	_muzzle_flash.position = MUZZLE
+	_muzzle_flash.position = muzzle
 	_muzzle_flash.light_color = Color(1.0, 0.78, 0.45)
 	_muzzle_flash.light_energy = 0.0
 	_muzzle_flash.omni_range = 220.0
-	flagship.add_child(_muzzle_flash)
+	mount.add_child(_muzzle_flash)
 
 	_muzzle_smoke = Effects.make_smoke()
-	_muzzle_smoke.position = MUZZLE
+	_muzzle_smoke.position = muzzle
 	_muzzle_smoke.emitting = false
-	flagship.add_child(_muzzle_smoke)
+	mount.add_child(_muzzle_smoke)
 
 	var round_mesh := SphereMesh.new()
 	round_mesh.radius = 2.6
@@ -504,7 +582,9 @@ func play_shot(result: Dictionary) -> void:
 	_muzzle_smoke.emitting = true
 	Sound.play("hit", -3.0, 0.62)
 
-	var from := flagship.to_global(MUZZLE)
+	# Asked of the flash rather than worked out, because once the guns train the
+	# muzzle is wherever the turret has swung it to.
+	var from := _muzzle_flash.global_position
 	await _fly(fleet.to_local(from), target)
 
 	_muzzle_smoke.emitting = false
@@ -584,6 +664,12 @@ var own_board: Board = null
 func begin_placement(board: Board) -> void:
 	own_board = board
 	own_board.ships.clear()
+	# Fore and aft while the fleet is still being laid out. Guns already trained
+	# out on the enemy's bearing before a shot has been called would give the
+	# game away, and it is the swing out to that bearing on the first salvo that
+	# the traverse is for.
+	for gun in turrets:
+		(gun as Turret).centre()
 	placing = true
 	placing_index = 0
 	placing_horizontal = true
@@ -757,34 +843,89 @@ func _build_wrecks() -> void:
 		body.position.y = 1.5
 		hulk.add_child(body)
 
-		var column := Effects.make_smoke()
-		# Many small puffs rather than a few big ones. Ninety puffs a hundred
-		# and seventy metres across do not make a column - they make two brown
-		# balls sitting on the horizon.
-		var rise: ParticleProcessMaterial = column.process_material
-		rise.initial_velocity_min = 26.0
-		rise.initial_velocity_max = 52.0
-		rise.gravity = Vector3(7.0, 7.0, 0.0)
-		rise.spread = 14.0
-		rise.turbulence_noise_strength = 0.6
-		column.amount = 320
-		column.lifetime = 34.0
-		column.draw_pass_1 = Effects.quad(95.0)
-		# Unshaded, because oily smoke a mile off is a dark shape against the
-		# sky whatever the sun is doing - lit like a solid it came out a
-		# cheerful tan.
-		var soot := Effects.billboard(Color(1, 1, 1), false, 95.0)
-		soot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		soot.albedo_color = Color(0.30, 0.29, 0.28)
-		column.material_override = soot
-		column.position.y = 8.0
-		# Already burning when the player arrives. A particle system starts
-		# empty and takes its whole lifetime to fill; without this a wreck that
-		# has been on fire for an hour shows three small puffs.
-		column.preprocess = 24.0
-		Effects.room_to_work(column, 1400.0)
-		column.emitting = true
-		hulk.add_child(column)
+		_build_wreck_smoke(at)
+
+## The column over one wreck.
+##
+## This is the effect the whole of the war around the fleet was built for, and
+## for three goes at it it did not work: dark round blobs sat on the horizon
+## looking like thumbprints on the lens. The reason turned out to be one line,
+## and it was not any of the ones that looked guilty.
+##
+## **It was the turbulence.** Godot's particle turbulence is not a jitter added
+## to a particle's own motion - it is a noise velocity field that carries the
+## particle along with it, and at this noise scale the field is broader than the
+## whole effect. So every puff, however hard it was thrown upward, got swept back
+## into the same slowly churning knot of air: a ball, reliably, whatever the
+## velocities said. `dev/probe/_column.gd` put four variants side by side at a
+## known distance and the one with turbulence off was a nine-hundred-metre column
+## while the other three were balls. Nothing else had to change.
+##
+## Two other things were wrong and are fixed here as well, because both would
+## have spoiled the column once it stood up:
+##
+## Drift. The smoke was given a gravity of seven metres per second squared
+## sideways as well as seven up, over a lifetime of thirty-four seconds. That is
+## not a lean, it is four kilometres of travel in each direction. Wind is a
+## steady push and belongs in gravity; it just has to be a wind and not a
+## catapult.
+##
+## Size. The puffs inherited `make_smoke`'s scale of 1.1 to 3.0 and the quad had
+## been enlarged to ninety-five metres, so each was drawn between a hundred and
+## two hundred and eighty metres across. A column is an aspect ratio before it is
+## anything else, and a puff wider than the column is tall cannot make one. This
+## one climbs nine hundred metres while widening from thirty to a hundred and
+## forty, which is eleven to one.
+func _build_wreck_smoke(at: Vector3) -> void:
+	var column := Effects.make_smoke()
+	var rise: ParticleProcessMaterial = column.process_material
+	# Straight up out of the fire, with a narrow cone. What breaks the column up
+	# is the puffs overlapping at different sizes, which is enough.
+	rise.direction = Vector3(0.0, 1.0, 0.0)
+	rise.spread = 7.0
+	rise.initial_velocity_min = 42.0
+	rise.initial_velocity_max = 54.0
+	# Wind: sideways only, and gentle. Nothing vertical, so the smoke keeps the
+	# speed it left the fire with and climbs at a steady rate instead of
+	# accelerating away. Over nineteen seconds this leans the column about two
+	# hundred and ninety metres downwind of a nine-hundred-metre climb, which is
+	# the seventeen degrees or so that oily smoke leans in a moderate breeze.
+	rise.gravity = Vector3(1.6, 0.0, 0.6)
+	# Damping fights the climb, and smoke off an oil fire is buoyant enough not
+	# to slow down over the first half mile. `make_smoke` sets one to four for
+	# smoke at arm's length, where it is right.
+	rise.damping_min = 0.0
+	rise.damping_max = 0.4
+	# The line the whole effect turned on. See above: turbulence advects rather
+	# than jitters, and over a nineteen-second life it balls the column up.
+	rise.turbulence_enabled = false
+	rise.scale_min = 0.85
+	rise.scale_max = 1.25
+	rise.scale_curve = Effects.widening_curve()
+	column.amount = 420
+	column.lifetime = 19.0
+	column.draw_pass_1 = Effects.quad(34.0)
+	# Unshaded, because oily smoke a mile off is a dark shape against the sky
+	# whatever the sun is doing - lit like a solid it came out a cheerful tan.
+	var soot := Effects.billboard(Color(1, 1, 1), false, 34.0)
+	soot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	soot.albedo_color = Color(0.30, 0.29, 0.28)
+	column.material_override = soot
+	# Hung on the war rather than on the hulk, which is the whole reason the
+	# hulk can keep a random heading: the hulks are turned to any angle, and a
+	# column parented to one would have its wind turned with it, so the three of
+	# them would lean three different ways in the same breeze.
+	column.position = at + Vector3(0.0, 8.0, 0.0)
+	# Already burning when the player arrives. A particle system starts empty
+	# and takes its whole lifetime to fill; without this a wreck that has been
+	# on fire for an hour shows three small puffs.
+	column.preprocess = 19.0
+	# Room enough for the whole climb and the whole lean. The default box is a
+	# few metres across, and a column culled against that vanishes whenever its
+	# base leaves the screen - which, on the horizon, is most of the time.
+	Effects.room_to_work(column, 1400.0)
+	column.emitting = true
+	war.add_child(column)
 
 ## A flight going over, high and unhurried. They are somebody else's aircraft
 ## on somebody else's errand, which is the point: the war is bigger than you.
@@ -815,6 +956,20 @@ func _build_distant_gunfire() -> void:
 	war.add_child(_gun_flash)
 
 ## Funnel smoke on the escorts. A warship under way is never clean.
+##
+## This had the same two faults as the wreck columns and for the same reason -
+## it is built from the same `make_smoke` - so it is worth naming them here too,
+## because from the bridge these are the smudges the player actually sees. The
+## escorts are a kilometre away and the wrecks are three to nine, so a dark ball
+## beside a destroyer is far more obvious than one on the horizon.
+##
+## The turbulence balled it up, as it did the columns. And the drift was wrong by
+## an order of magnitude: nine metres per second squared astern over a fourteen
+## second life is nearly nine hundred metres of travel, which would have the
+## smoke leaving the funnel at sixty metres a second relative to a ship making
+## seven. Funnel smoke falls astern at the speed of the apparent wind and no
+## faster, so the push is set to give about a hundred metres over that life -
+## which is one ship's length of trail, and looks like one.
 func _build_funnel_smoke() -> void:
 	for station in escorts.get_children():
 		var kind: int = station.get_meta("kind", -1)
@@ -823,15 +978,26 @@ func _build_funnel_smoke() -> void:
 		var length := ShipModels.hull_length(kind)
 		var trail := Effects.make_smoke()
 		var drift: ParticleProcessMaterial = trail.process_material
-		drift.initial_velocity_min = 4.0
-		drift.initial_velocity_max = 11.0
-		drift.gravity = Vector3(9.0, 3.0, 0.0)
-		trail.amount = 40
-		trail.lifetime = 14.0
-		trail.draw_pass_1 = Effects.quad(26.0)
-		var haze := Effects.billboard(Color(1, 1, 1), false, 26.0)
+		drift.initial_velocity_min = 6.0
+		drift.initial_velocity_max = 13.0
+		drift.gravity = Vector3(1.1, 0.7, 0.0)
+		drift.damping_min = 0.0
+		drift.damping_max = 0.5
+		drift.turbulence_enabled = false
+		drift.scale_min = 0.8
+		drift.scale_max = 1.5
+		drift.scale_curve = Effects.trailing_curve()
+		# More puffs, each much smaller. Same lesson as the wreck columns, one
+		# scale down: at `make_smoke`'s sizes each puff was up to seventy-eight
+		# metres across on a plume only a hundred and fifty tall, and two things
+		# that wide stacked on each other are a pair of balls, not a trail. A
+		# plume is an aspect ratio too.
+		trail.amount = 90
+		trail.lifetime = 16.0
+		trail.draw_pass_1 = Effects.quad(17.0)
+		var haze := Effects.billboard(Color(1, 1, 1), false, 17.0)
 		haze.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		haze.albedo_color = Color(0.42, 0.42, 0.43, 0.55)
+		haze.albedo_color = Color(0.40, 0.40, 0.42, 0.5)
 		trail.material_override = haze
 		trail.position = Vector3(length * 0.08, length * 0.10, 0.0)
 		trail.preprocess = 12.0

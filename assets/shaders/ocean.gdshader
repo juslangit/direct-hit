@@ -31,76 +31,21 @@ uniform sampler2D detail_normal : hint_normal;
 uniform float detail_strength = 0.13;
 uniform float detail_scale = 0.022;
 
-// direction.xy, amplitude, wavelength.
-//
-// One unit is one metre. Open
-// ocean swell runs roughly sixty times longer than it is tall, so these keep
-// that ratio; the earlier set was three times too steep and the sea read as a
-// gale in every shot.
-//
-// The shortest wave also has to stay several mesh quads wide. Below about
-// three quads per wavelength the surface cannot hold the shape, and instead
-// of small waves you get a crumpled-foil pattern that crawls as the camera
-// moves. That is what sets the floor on WAVE_D.
-const vec4 WAVE_A = vec4(1.0, 0.25, 0.95, 92.0);
-const vec4 WAVE_B = vec4(0.72, -0.68, 0.52, 57.0);
-const vec4 WAVE_C = vec4(-0.45, 0.89, 0.26, 34.0);
-const vec4 WAVE_D = vec4(0.94, 0.33, 0.11, 20.0);
-const vec4 STEEP = vec4(0.85, 0.75, 0.65, 0.55);
-const float TOTAL_AMPLITUDE = 1.84;
+// The waves themselves live here, because the wake lying on this water has to
+// be displaced by exactly the same sum. See gerstner.gdshaderinc.
+#include "res://assets/shaders/gerstner.gdshaderinc"
 
 varying vec3 world_pos;
 varying float crest;
-
-// One wave. Returns the offset it applies to this point and accumulates its
-// contribution to the surface normal.
-//
-// The horizontal part of a Gerstner wave must stay tied to its own amplitude:
-// steepness * amplitude, never steepness / wavenumber. Divide by the
-// wavenumber and a short wave gets a sideways push far larger than its own
-// height, the surface folds through itself, and a calm sea renders as broken
-// glass. Ask for shorter waves and it gets worse, which is exactly how this
-// was found.
-vec3 gerstner(vec4 wave, float steepness, float fade, vec3 p, float t, inout vec3 normal_sum) {
-	vec2 dir = normalize(wave.xy);
-	float amplitude = wave.z * wave_scale * fade;
-	float wavelength = wave.w * wave_scale;
-	float k = 6.28318 / wavelength;
-	float speed = sqrt(9.81 / k) * wave_speed;
-	float phase = k * (dot(dir, p.xz) - speed * t);
-
-	float c = cos(phase);
-	float s = sin(phase);
-	float ka = k * amplitude;
-
-	normal_sum += vec3(
-		-dir.x * ka * c,
-		-steepness * ka * s,
-		-dir.y * ka * c
-	);
-	return vec3(
-		dir.x * steepness * amplitude * c,
-		amplitude * s,
-		dir.y * steepness * amplitude * c
-	);
-}
 
 void vertex() {
 	vec3 p = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float t = TIME;
 
-	// Far out, the mesh is too coarse to hold a wave and it turns to noise.
-	// The waves are flattened by distance rather than the finished offset
-	// being scaled down, so the normal always describes the shape actually
-	// drawn - flatten one and not the other and the lighting comes apart.
-	float fade = 1.0 - smoothstep(fade_start, fade_end, length(p.xz - CAMERA_POSITION_WORLD.xz));
+	float fade = sea_fade(p, CAMERA_POSITION_WORLD, fade_start, fade_end);
 
 	vec3 normal_sum = vec3(0.0);
-	vec3 offset = vec3(0.0);
-	offset += gerstner(WAVE_A, STEEP.x, fade, p, t, normal_sum);
-	offset += gerstner(WAVE_B, STEEP.y, fade, p, t, normal_sum);
-	offset += gerstner(WAVE_C, STEEP.z, fade, p, t, normal_sum);
-	offset += gerstner(WAVE_D, STEEP.w, fade, p, t, normal_sum);
+	vec3 offset = sea_displacement(p, t, wave_scale, wave_speed, fade, normal_sum);
 
 	VERTEX += (inverse(MODEL_MATRIX) * vec4(offset, 0.0)).xyz;
 	world_pos = p + offset;
