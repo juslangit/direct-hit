@@ -18,3 +18,6 @@
 .DS_Store
 dev/shots/
 build/
+
+# Project record: built locally, never committed (it holds session logs)
+docs/index.html
