@@ -20,6 +20,7 @@ original. Only the data tables below and the page layout are this game's own.
 Reads:
     ~/.claude/knowledge/projects/direct-hit/*.md and log/*.md   (override: KNOWLEDGE=...)
     dev/shots/*.png                                            (the galleries below)
+    docs/record/*                                              (committed: today's screens, history, diagrams, check output)
     dev/checks/*.gd, dev/looks/*.gd                            (their ## headers)
     git log
 
@@ -59,6 +60,35 @@ _cache.mkdir(exist_ok=True)
 
 
 GALLERIES = [
+    ("screens-start", "From the menu to putting to sea", "Everything before the first shot, photographed on 2026-09-30 from the game as it stands. The fleet is laid out on the same plotting table that later carries the enemy's water, so by the time the battle starts the player already knows where the table is and how it reads.", [
+        ("docs/record/menu.jpg", "The main menu today: the oil-painting key art on the right, the title and three buttons in the clear space on the left. The picture was chosen over a poster version because its bow keeps out of the text column."),
+        ("docs/record/place-turned.jpg", "Laying the carrier up and down the plot. The green ghost is five squares long and legal where it is; the line under the chart says which ship, how long she is and which way she is lying."),
+        ("docs/record/place-illegal.jpg", "The same ghost pushed off the edge: at 7 in row I a five-square ship would run off the chart, so the squares turn orange and a click there does nothing."),
+        ("docs/record/place-partial.jpg", "Three ships down, drawn as grey hulls on the paper, and the submarine's ghost waiting in row H. PUT TO SEA stays dark until the whole fleet is laid."),
+        ("docs/record/place-ready.jpg", "After SCATTER THEM: all five ships placed at random, the line reads 'The fleet is at sea.' and PUT TO SEA lights up."),
+    ]),
+    ("screens-turn", "One turn, start to finish", "A single turn against the computer, photographed step by step on 2026-09-30: look out, call a square, lay the guns, fire, watch where it lands, then take the reply. The captions follow the order a player meets these screens.", [
+        ("docs/record/watch-start.jpg", "The first thing seen after putting to sea: the three forward windows, your own foredeck and turrets, wrecks already burning on the horizon, and the instruction 'Find them. T for the plotting table.'"),
+        ("docs/record/sight-laid.jpg", "Eye to the gun sight with square C3 called. The readout on the left gives bearing RED 034, range 6686 metres and ON TARGET - FIRE. The wheelhouse pillar fills the left third of the view, because the sight sits inside the room."),
+        ("docs/record/guns-fire.jpg", "SPACE pressed: the forward turrets have fired and a cloud of brown gun smoke rolls back across the window."),
+        ("docs/record/shell-in-flight.jpg", "A second later, turned towards the enemy's bearing: the smoke has drifted aft across the windows while the shell spends 2.6 seconds in the air."),
+        ("docs/record/their-turn.jpg", "A miss means no cutscene - the message is 'Nothing there. Just water.' - and then the computer shoots back: 'They have our range.'"),
+        ("docs/record/cut-banner-hit.jpg", "A hit. The picture cuts to a close view of the ship you hit - here the battleship at F3 - with HIT and the square written over it. The fire is on the part of the hull that sits in the square you called."),
+        ("docs/record/found-burning.jpg", "Back on the bridge afterwards: 'Your shot. T for the plotting table.' A ship you have found stays on the horizon, burning, as the only record of your hits outside the chart."),
+        ("docs/record/sight-burning.jpg", "Through the sight on a ship already hit: the carrier at F5 sits under the designator with smoke rising from her deck, 6486 metres away."),
+        ("docs/record/cut-banner-sunk.jpg", "The last square of the battleship: SUNK, in a deeper red than HIT. She is rolling towards the hole and settling while the camera stays well off her beam."),
+        ("docs/record/plot-midgame.jpg", "The plot part-way through: misses as small circles (A1, B8, C3), hits as orange bursts, the sunk battleship across F3 to F6. The table's front grab handles sit over the corner squares in row J from this viewpoint."),
+    ]),
+    ("screens-ending", "Pausing and ending", "ESC always reaches the pause screen, because once the battle starts the bridge takes the mouse pointer and a player with no way to get it back is trapped. A match ends on the bridge, not on a separate screen.", [
+        ("docs/record/pause.jpg", "STAND EASY: the pause screen over the plot, listing every key, with CARRY ON, BACK TO PORT and LEAVE THE SHIP. The pale scrim lets the chart show through behind the text."),
+        ("docs/record/victory.jpg", "VICTORY, drawn over the windows with the shots, hits and accuracy under it (79% in this run), and SAIL AGAIN or BACK TO PORT. The grey detail line is hard to read against the bright sea."),
+        ("docs/record/defeat.jpg", "The other ending: YOUR FLEET IS GONE, in the same place and the same brass as a win."),
+    ]),
+    ("screens-two", "Two players, one device", "In a two-player game the device is handed across after every placement and every shot. The handover screen is solid, not see-through, because anything behind it would show the other player's fleet.", [
+        ("docs/record/pvp-place.jpg", "Player 1 lays out: the same table and bar as against the computer, with 'Player 1 -' in front of the instruction."),
+        ("docs/record/handover.jpg", "PASS THE DEVICE: 'Player 2 lays her fleet out next.' and one button, I AM READY. Player 1's ships are only a faint trace under the paper-coloured cover."),
+        ("docs/record/pvp-place-p2.jpg", "Player 2 then lays out on a clean chart of their own."),
+    ]),
     ("screens-bridge", "Inside the wheelhouse", "The player stands in an enclosed steel wheelhouse mounted where the Littorio's own bridge was: a deck underfoot, four bulkheads, a deckhead overhead, a band of windows forward and one each side, and the fittings a bridge actually has. It is all built in code, because a hull model bought for use at half a mile does not survive being stood in. What the bought hull provides is everything beyond the windows - the foredeck and the turrets - which is the distance it is good at. An earlier version put the player on an open platform on top of the ship, which read as standing on the roof.", [
         ("br_ahead", "Forward through the window band: mullions, the sill with its grab rail, the deckhead, and your own foredeck held inside the frame. How far back the player stands is the whole difference between a room and a window pressed against your face."),
         ("br_the_wheel", "Turning round: the wheel on its pedestal, an engine telegraph either side, the doorway aft, and the plotting table to port."),
@@ -69,6 +99,8 @@ GALLERIES = [
         ("ui_placement", "Laying the fleet out: the ghost of the carrier on the plot, five squares, legal where it is."),
         ("ui_battle_plot", "In action, the table carries the enemy's water instead: misses as flat discs, hits as bursts, the called square in brass."),
         ("br_plot_table", "The table itself, inside the wheelhouse, with a voice pipe beyond it and the sea through the side window."),
+        ("br_aft_quarter", "The wheelhouse from its after corner: the wheel on the left, the plotting table on its pedestal, the deckhead lamp, and the long window band down the side."),
+        ("br_port_window", "Looking to port from beside the wheel: the plotting table in the corner and the side windows running forward, with an escort on the horizon."),
     ]),
     ("screens-sight", "The gun sight", "The bearing ribbon is the piece that matters. The plot gives a square, the square gives a bearing, and the ribbon is how the guns get onto it - which is the job a director sight actually did. The first version of this screen laid a lit grid on the enemy's water instead; see the note in Methods for why that could never have worked.", [
         ("ui_battle_sight", "Eye to the director at eight and a half degrees: the bearing ribbon with the guns and the target nearly together, the elevation ladder, and the designator sitting on the square that was called."),
@@ -81,6 +113,13 @@ GALLERIES = [
         ("wake_astern", "Her own wake from astern, running unbroken from under the stern and riding the swell. The foam pattern scrolls aft at exactly her own speed, so it stands still in the water while the strip carrying it moves with her."),
         ("wake_from_the_beam", "And from the beam at sea level, which is how the player sees an escort's."),
         ("wreck_column", "A wreck three kilometres off the starboard bow, with a cruiser of your own between you and her. Eight hundred metres of smoke, against the hundred-metre ball this was for three attempts."),
+        ("column_variants", "How the smoke problem was found: four copies of the same column side by side, each with one setting changed. Three stay as dark balls; the one with turbulence switched off rises as a column."),
+        ("wreck_horizon", "Two wrecks burning at different distances, as seen from the bridge with the controls bar along the bottom."),
+        ("who_owns_from_above", "Which part of the hull belongs to which turret, from above: every piece of the merged model coloured by the gun it was assigned to before the turrets were cut free."),
+        ("who_owns_the_guns", "The same colouring from the side. Anything painted the wrong colour here would have swung round with the wrong turret."),
+        ("cut_trained_above", "After the cut, from above: the first turret (red) and the second (blue) lifted out of the hull and trained, with the deck under them left whole."),
+        ("cut_trained_beam", "The same two turrets from the beam, trained out, sitting on their barbettes at the right height."),
+        ("gun_from_above", "Looking straight down from the bridge onto the superfiring turret and the wooden deck in front of it."),
     ]),
     ("screens-fleet", "The fleet", "Five real vessels, pulled from Sketchfab under CC Attribution and normalised at load rather than edited. One unit is one metre, and at sixty metres to a grid square four of the five come out within a few per cent of their real lengths. These are the photographs that caught the submarine sailing stern-first, and later every one of them riding with her main deck under water.", [
         ("carrier_side", "Carrier - five squares, 300 m. Gerald R. Ford class."),
@@ -89,7 +128,39 @@ GALLERIES = [
         ("submarine_side", "Submarine - three squares. Photographed stern-first at first: a bounding box cannot tell you which end is the bow, but the propeller in a render can."),
         ("destroyer_side", "Destroyer - two squares. Arleigh Burke class."),
         ("battleship_bow", "Close on the bow, which is where too much draft shows first."),
+        ("carrier_bow", "The carrier from low on her bow, riding at her real draft with the flight deck overhanging the sea."),
+        ("carrier_top", "Carrier from directly above, on a dark background: the check that her flight deck runs the right way and that she is five squares long."),
+        ("battleship_top", "Battleship from above - long and narrow, bow to the left like every hull in the game."),
+        ("cruiser_top", "Cruiser from above: three squares."),
+        ("submarine_top", "Submarine from above: the propeller end on the right, which is how the stern-first mistake was caught."),
+        ("destroyer_top", "Destroyer from above: two squares, the smallest hull the cutscene camera has to frame."),
     ]),
+    ("how-it-works", "How it works", "Four diagrams drawn for this record on 2026-09-30 from the code, so the game can be explained without reading it. They are rendered from mermaid text with mermaid-cli.", [
+        ("docs/record/diagram-turn.png", "One turn. Everything in the game hangs off the middle diamond: the rules answer miss, hit, sunk or fleet gone, and the bridge and the cutscene only stage that answer."),
+        ("docs/record/diagram-screens.png", "The screens and how a player moves between them, including the PASS THE DEVICE screen that appears after every shot in a two-player game."),
+        ("docs/record/diagram-parts.png", "How the scripts fit together. main.gd decides which screen is up; the rules (board.gd, ship.gd, match_state.gd) never draw anything; the cutscene is told only which ship, which segment and whether she sank."),
+        ("docs/record/diagram-checks.png", "What each check and look scene tests. The checks end in a verdict; the looks save pictures for a person to judge."),
+    ], "wide"),
+    ("history", "How it changed", "The game at six points in its history. Each older commit was checked out on its own, run, and photographed with the look scene that existed at that commit - these are the real old versions, not reconstructions.", [
+        ("docs/record/history-2026-09-17-first-cutscene.jpg", "2026-09-17, commit 16d2ddd - the first thing built, before any board existed: the rules, five real hulls, and the hit cutscene. The Littorio taking a shell amidships on a dark blue sea."),
+        ("docs/record/history-2026-09-17-flat-menu.jpg", "2026-09-17, commit 9e07d47 - the first playable game. The title sat over a live sea with a cruiser steaming through it, and two buttons."),
+        ("docs/record/history-2026-09-17-flat-board.jpg", "The same day's board: a flat two-grid Battleships screen, your waters on the left, enemy waters on the right, and a list of ships under each."),
+        ("docs/record/history-2026-09-17-flat-cutscene-banner.jpg", "The same version's cutscene with its HIT banner and a 'click to skip' note - the cutscene has barely changed since; everything around it has."),
+        ("docs/record/history-2026-09-17-bridge-menu.jpg", "2026-09-17, commit 39ad542 - the whole game moved onto the bridge of a battleship. The title was drawn straight over the view from an open platform, with the rail across the bottom."),
+        ("docs/record/history-2026-09-17-open-bridge.jpg", "The open-platform bridge in action: standing on top of the ship behind a rail, with the smoke columns still drawn as black balls."),
+        ("docs/record/history-2026-09-17-open-bridge-table.jpg", "Its plotting table: a blue glass grid lying almost flat and seen at a steep angle, with the letters down the side too foreshortened to read."),
+        ("docs/record/history-2026-09-17-first-wheelhouse.jpg", "2026-09-17, commit b53633d - the player is put inside a wheelhouse: window frames, a sill and a brass rail, which is the room the game still uses."),
+        ("docs/record/history-2026-09-18-real-main-menu.jpg", "2026-09-18, commit 1d6af03 - a real main menu: the text column on the left with LEAVE THE SHIP added, over a live shot of a ship being hit."),
+        ("docs/record/history-2026-09-18-sky-over-the-wheelhouse.jpg", "The same commit on the bridge: the message now sits in a dark band across the top, and ESC pause has joined the controls along the bottom - the way out of a captured pointer."),
+        ("docs/record/history-2026-09-18-glass-plot.jpg", "The plot as blue glass, turned to face the reader - with a white blob in the middle that was the deckhead lamp reflected in a shiny surface."),
+        ("docs/record/history-2026-09-18-paper-plot.jpg", "2026-09-18, commit 7edd86d - the plot became chart paper with generated art. Making the paper rough (0.92) is what removed the lamp's reflection."),
+    ]),
+    ("checks-running", "The checks, running", "The four main checks run on 2026-09-30 and their real output. The rules and asset checks run headless; the flow and play checks need a window because they build real screens and push real input through them.", [
+        ("docs/record/checks-rules.png", "_rules: placement, shots and sinking, then 300 full games by the computer gunner - every game finished, the worst took 69 shots and the average was 52.5, which proves it neither cheats nor flounders."),
+        ("docs/record/checks-flow.png", "_flow: a match driven from the menu to the last ship through the real screens - including that the enemy fleet is never drawn on your plot and that the handover hides the bridge completely."),
+        ("docs/record/checks-play.png", "_play: real key presses and clicks through the whole input system. Everything passed except the battle frame rate - 22 fps at full Retina size on this run, with many other programs busy on the same Mac, against 61 fps at the menu."),
+        ("docs/record/checks-assets.png", "_assets: every hull, sound, shader and the sky load, the sun is aimed at the sun painted into the sky, and all five CC-BY hulls are credited."),
+    ], "wide"),
 ]
 
 
@@ -305,24 +376,24 @@ _cache.mkdir(exist_ok=True)
 missing = []
 
 
-def picture(name):
+def picture(name, width=IMAGE_WIDTH):
     """(data URI, date) for a screenshot, or (None, None) when it is not there."""
     path = PROJECT / name if "/" in name else SHOTS / f"{name}.png"
     if not path.exists():
         missing.append(name)
         return None, None
     stamp = int(path.stat().st_mtime)
-    jpeg = _cache / f"{path.stem}-{stamp}.jpg"
+    jpeg = _cache / f"{path.stem}-{stamp}-{width}.jpg"
     if not jpeg.exists():
         subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", str(IMAGE_QUALITY),
-                        "-Z", str(IMAGE_WIDTH), str(path), "--out", str(jpeg)],
+                        "-Z", str(width), str(path), "--out", str(jpeg)],
                        check=True, capture_output=True)
     data = base64.b64encode(jpeg.read_bytes()).decode()
     return f"data:image/jpeg;base64,{data}", datetime.date.fromtimestamp(stamp).isoformat()
 
 
-def figure(name, caption, label=""):
-    uri, date = picture(name)
+def figure(name, caption, label="", width=IMAGE_WIDTH):
+    uri, date = picture(name, width)
     if uri is None:
         return (f'<figure class="shot missing"><div class="gap">Screenshot not taken yet: '
                 f"<code>{html.escape(name)}</code></div><figcaption>{html.escape(caption)}</figcaption></figure>")
@@ -332,7 +403,9 @@ def figure(name, caption, label=""):
             f'<span>{html.escape(caption)}</span><span class="date">{date}</span></figcaption></figure>')
 
 
-def grid(figures):
+def grid(figures, wide=False):
+    if wide:
+        return f'<div class="shots single">{"".join(figures)}</div>'
     return f'<div class="shots{" odd" if len(figures) % 2 else ""}">{"".join(figures)}</div>'
 
 
@@ -394,19 +467,25 @@ def history():
 PIPELINE = [
     ("Ask", "Where the cutscenes come from, what to build it in, who the player plays against - put to Luqman before a line was written.", "01-idea.md, 06-decisions.md"),
     ("Rules first", "The board, the fleet and the computer gunner, proven with nothing drawn.", "scripts/board.gd, dev/checks/_rules.gd"),
-    ("Hulls", "Five models downloaded, measured, and corrected in a table rather than edited.", "scripts/ship_models.gd"),
+    ("Hulls", "Five models downloaded from Sketchfab, measured, and corrected in a table rather than edited.", "scripts/ship_models.gd"),
     ("Stage it", "Ocean, sky, camera, shell, fire and smoke - all generated from the result of the shot.", "scripts/cutscene.gd"),
+    ("The bridge", "The whole game moved onto a battleship: a wheelhouse built in code, a plotting table, a gun sight and turrets cut free so they can train.", "scripts/bridge.gd, wheelhouse.gd, turret.gd"),
+    ("Sky and art", "A CC0 photographed sky with the sun aimed to match it, and interface art generated once and then corrected by hand.", "assets/, 04-methods.md"),
     ("Look", "Photographs at exact beats, read back and judged by eye.", "dev/looks/, dev/shots/"),
-    ("Check", "Headless scenes that end in a verdict, including the leak a correct rule set cannot catch.", "dev/checks/"),
+    ("Check", "Scenes that end in a verdict - the rules, the real screens, real keys and clicks, and every asset.", "dev/checks/"),
     ("Play and review", "Luqman plays and reports back; the notes record what was decided.", "log/, 06-decisions.md"),
+    ("Record", "This page, rebuilt from the notes, the look pictures, docs/record/ and git.", "tools/docs/build_docs.py"),
 ]
 
 TOOLS = [
     ("Godot 4.7.2", "Engine. Everything is built in code, including the board and the cutscene, so every camera mark and explosion timing reads in one file."),
     ("GDScript", "All game logic, the rules apart from the staging."),
-    ("Sketchfab", "All five hulls, CC Attribution, normalised at load by ship_models.gd."),
+    ("Sketchfab", "All five hulls and the aircraft, CC Attribution, normalised at load by ship_models.gd and credited in the game."),
+    ("Poly Haven", "The sky: kloofendal_38d, a CC0 photographed panorama. Its sun is 37.8 degrees up, and the game's light is aimed there."),
+    ("OpenArt", "Generated the key art, the steel, the brass and the chart paper once, on 2026-09-18; every image was cropped or corrected by hand before it went in."),
     ("sfx (Freesound)", "CC0 sound only, with every file's source recorded in assets/audio/freesound/SOURCES.md."),
     ("ffmpeg", "One conversion: this build of Godot has no FLAC importer and drops the file without saying so."),
+    ("mermaid-cli and git worktree", "For this record: the How it works diagrams are drawn from text, and the How it changed pictures come from old commits checked out beside the real folder."),
     ("Knowledge base", "The project notes this page is built from, kept outside the repo."),
 ]
 
@@ -451,10 +530,15 @@ def page():
 
     # Screens
     subs, parts = [], []
-    for gid, title, intro, shots in GALLERIES:
+    for gid, title, intro, shots, *layout in GALLERIES:
+        # A gallery marked "wide" shows one picture to a row at twice the size: diagrams
+        # and terminal output are unreadable at half the page width.
+        wide = "wide" in layout
+        size = IMAGE_WIDTH * 2 if wide else IMAGE_WIDTH
         subs.append((gid, title))
         parts.append(f'<section class="gallery" id="{gid}"><h3>{html.escape(title)}</h3>'
-                     f'<p class="note">{html.escape(intro)}</p>{grid([figure(n, c) for n, c in shots])}</section>')
+                     f'<p class="note">{html.escape(intro)}</p>'
+                     f'{grid([figure(n, c, width=size) for n, c in shots], wide)}</section>')
     toc.append(("screens", "Screens", subs))
     body.append(f'''
 <section class="chapter" id="screens">
@@ -598,6 +682,7 @@ h5 { font: 600 16px/1.3 var(--body); margin: 18px 0 4px; }
 .status { font: 500 12px/1 var(--mono); text-transform: none; letter-spacing: 0; color: var(--court); background: var(--court-soft); padding: 4px 8px; vertical-align: middle; }
 .shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 10px; }
 .shots.odd > .shot:first-child { grid-column: 1 / -1; }
+.shots.single { grid-template-columns: 1fr; }
 .shots.odd > .shot:first-child img { max-height: 520px; object-fit: cover; }
 .shot { margin: 0; display: grid; gap: 6px; align-content: start; }
 .shot img { display: block; width: 100%; max-width: 100%; height: auto; background: var(--line); }
